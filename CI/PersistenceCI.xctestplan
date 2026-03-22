@@ -1,0 +1,30 @@
+{
+  "configurations" : [
+    {
+      "id" : "21F1259D-7753-4828-9E04-14331F67F727",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "performanceAntipatternCheckerEnabled" : true,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:PersistenceCI.xcodeproj",
+      "identifier" : "55A5BB702F6E9B1600FF9F54",
+      "name" : "PersistenceCI"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:PersistenceCI.xcodeproj",
+        "identifier" : "55A5BB7D2F6E9B1700FF9F54",
+        "name" : "PersistenceCITests"
+      }
+    }
+  ],
+  "version" : 1
+}
