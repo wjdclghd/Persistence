@@ -4,7 +4,7 @@
 //
 //  Created by jch on 6/30/25.
 //
-
+/*
 import Foundation
 import Combine
 
@@ -16,3 +16,4 @@ public protocol RealmSwiftDBSearchListProtocol {
     func selectDatabase<T: RealmSwiftDBSearchListEntityProtocol>(searchKeyword: String) -> AnyPublisher<[T], Error>
     func selectAllDatabase<T: RealmSwiftDBSearchListEntityProtocol>() -> AnyPublisher<[T], Error>
 }
+*/

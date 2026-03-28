@@ -20,13 +20,13 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/realm/realm-swift.git", from: "10.47.0")
+//        .package(url: "https://github.com/realm/realm-swift.git", from: "20.0.4")
     ],
     targets: [
         .target(
             name: "Persistence",
             dependencies: [
-                .product(name: "RealmSwift", package: "realm-swift")
+//                .product(name: "RealmSwift", package: "realm-swift")
             ],
             path: "Sources/Persistence"
         ),
@@ -34,7 +34,7 @@ let package = Package(
             name: "PersistenceTests",
             dependencies: [
                 "Persistence",
-                .product(name: "RealmSwift", package: "realm-swift")
+//                .product(name: "RealmSwift", package: "realm-swift")
             ],
             path: "Tests/PersistenceTests"
         )

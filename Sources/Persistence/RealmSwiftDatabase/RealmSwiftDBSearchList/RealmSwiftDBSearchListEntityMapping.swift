@@ -4,7 +4,7 @@
 //
 //  Created by jch on 6/30/25.
 //
-
+/*
 import Foundation
 import RealmSwift
 
@@ -33,3 +33,4 @@ public extension RealmSwiftDBSearchListEntityMapping {
         self.timestamp = timestamp
     }
 }
+*/

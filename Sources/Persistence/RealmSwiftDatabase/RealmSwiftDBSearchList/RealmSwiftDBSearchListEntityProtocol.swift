@@ -4,7 +4,7 @@
 //
 //  Created by jch on 6/30/25.
 //
-
+/*
 import Foundation
 
 public protocol RealmSwiftDBSearchListEntityProtocol {
@@ -12,3 +12,4 @@ public protocol RealmSwiftDBSearchListEntityProtocol {
     
     init(searchKeyword: String)
 }
+*/

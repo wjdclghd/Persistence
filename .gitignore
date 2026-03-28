@@ -130,6 +130,10 @@ vendor/
 # IDE
 .idea/
 
+# Planning docs
+**/plan.md
+**/research.md
+
 
 ### Xcode ###
 
