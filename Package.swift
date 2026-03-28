@@ -28,7 +28,10 @@ let package = Package(
             dependencies: [
 //                .product(name: "RealmSwift", package: "realm-swift")
             ],
-            path: "Sources/Persistence"
+            path: "Sources/Persistence",
+            resources: [
+                .process("Resources")
+            ]
         ),
         .testTarget(
             name: "PersistenceTests",
