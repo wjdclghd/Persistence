@@ -98,6 +98,28 @@ private extension ProgrammaticPersistenceModel {
         entity.uniquenessConstraints = [["id", "type"]]
         return entity
     }
+    
+    /*
+     SessionSnapshot 엔티티를 생성합니다.
+
+     환경별 로그인 상태와 마지막 갱신 시각을 저장하며,
+     SessionSnapshotMO를 represented class로 사용합니다.
+     environment를 uniqueness constraint로 사용합니다.
+     */
+    static func makeSessionSnapshotEntity() -> NSEntityDescription {
+        let entity = makeEntity(
+            named: "SessionSnapshot",
+            managedObjectClassName: NSStringFromClass(SessionSnapshotMO.self)
+        )
+        entity.properties = [
+            makeStringAttribute(named: "environment", isOptional: false),
+            makeBoolAttribute(named: "isLoggedIn", isOptional: false, defaultValue: false),
+            makeDateAttribute(named: "lastRefreshedAt", isOptional: true),
+            makeStringAttribute(named: "userID", isOptional: true)
+        ]
+        entity.uniquenessConstraints = [["environment"]]
+        return entity
+    }
 
     /*
      CacheEntry 엔티티를 생성합니다.
@@ -117,24 +139,6 @@ private extension ProgrammaticPersistenceModel {
             makeInt64Attribute(named: "version", isOptional: false, defaultValue: 0)
         ]
         entity.uniquenessConstraints = [["namespace", "key"]]
-        return entity
-    }
-
-    /*
-     SessionSnapshot 엔티티를 생성합니다.
-
-     환경별 로그인 상태와 마지막 갱신 시각을 저장하며,
-     environment를 uniqueness constraint로 사용합니다.
-     */
-    static func makeSessionSnapshotEntity() -> NSEntityDescription {
-        let entity = makeEntity(named: "SessionSnapshot")
-        entity.properties = [
-            makeStringAttribute(named: "environment", isOptional: false),
-            makeBoolAttribute(named: "isLoggedIn", isOptional: false, defaultValue: false),
-            makeDateAttribute(named: "lastRefreshedAt", isOptional: true),
-            makeStringAttribute(named: "userID", isOptional: true)
-        ]
-        entity.uniquenessConstraints = [["environment"]]
         return entity
     }
 

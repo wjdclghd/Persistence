@@ -131,4 +131,19 @@ public final class PersistenceContainer {
     public func makeFavoriteStore() -> FavoriteStoreProtocol {
         CoreDataFavoriteStore(coreDataStack: coreDataStack)
     }
+    
+    /*
+     세션 스냅샷 저장소 구현체를 생성합니다.
+
+     상위 계층은 구체적인 Core Data 구현체 대신
+     SessionSnapshotStoreProtocol 계약을 통해 세션 스냅샷 기능에 접근합니다.
+     이 메서드는 현재 컨테이너가 보관 중인 Core Data stack을 사용해
+     세션 스냅샷 저장소를 조립한 뒤 반환합니다.
+
+     Returns:
+     - 세션 스냅샷 조회, 저장, 삭제 기능을 제공하는 SessionSnapshotStoreProtocol 구현체
+     */
+    public func makeSessionSnapshotStore() -> SessionSnapshotStoreProtocol {
+        CoreDataSessionSnapshotStore(coreDataStack: coreDataStack)
+    }
 }

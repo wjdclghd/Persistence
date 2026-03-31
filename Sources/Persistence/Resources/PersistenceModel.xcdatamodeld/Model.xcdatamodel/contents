@@ -35,7 +35,7 @@
             </uniquenessConstraint>
         </uniquenessConstraints>
     </entity>
-    <entity name="SessionSnapshot" representedClassName="SessionSnapshot" syncable="YES">
+    <entity name="SessionSnapshot" representedClassName="SessionSnapshotMO" syncable="YES">
         <attribute name="environment" attributeType="String"/>
         <attribute name="isLoggedIn" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
         <attribute name="lastRefreshedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
