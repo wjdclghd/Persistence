@@ -79,7 +79,7 @@ final class CoreDataStackTests: XCTestCase {
     /*
      bundle 기반 모델에서 실제 엔터티를 저장한 뒤 다시 조회할 수 있는지 검증합니다.
 
-     SearchHistory 엔터티를 background context에 삽입하고 save한 뒤
+     SearchHistoryRecord 엔터티를 background context에 삽입하고 save한 뒤
      다시 fetch하여 저장된 데이터가 남아 있는지를 확인합니다.
      */
     func test_performWrite_and_performRead_persistsAndFetchesSearchHistory() async throws {
@@ -249,7 +249,7 @@ final class CoreDataStackTests: XCTestCase {
 
 private extension CoreDataStackTests {
     /*
-     SearchHistory 엔티티를 저장한 뒤 다시 조회하는 공통 검증 로직입니다.
+     SearchHistoryRecord 엔티티를 저장한 뒤 다시 조회하는 공통 검증 로직입니다.
 
      bundle 기반 모델과 programmatic 모델이 같은 엔티티 이름과 속성 이름을 제공하는지,
      동일한 저장/조회 경로로 확인하기 위해 재사용합니다.
@@ -261,7 +261,7 @@ private extension CoreDataStackTests {
     ) async throws -> (String, Date) {
         try await stack.performWrite { context in
             let object = NSEntityDescription.insertNewObject(
-                forEntityName: "SearchHistory",
+                forEntityName: "SearchHistoryRecord",
                 into: context
             )
             object.setValue(keyword, forKey: "keyword")
@@ -269,7 +269,7 @@ private extension CoreDataStackTests {
         }
 
         return try await stack.performRead { context in
-            let request = NSFetchRequest<NSManagedObject>(entityName: "SearchHistory")
+            let request = NSFetchRequest<NSManagedObject>(entityName: "SearchHistoryRecord")
             request.fetchLimit = 1
             let objects = try context.fetch(request)
             let object = try XCTUnwrap(objects.first)

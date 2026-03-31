@@ -22,7 +22,7 @@ final class CoreDataMigrationTests: XCTestCase {
     /*
      테스트 전용 v1/v2 모델을 생성하는 빌더입니다.
 
-     v1 모델은 SearchHistory 엔터티에 keyword, lastSearchedAt 속성만 포함합니다.
+     v1 모델은 SearchHistoryRecord 엔터티에 keyword, lastSearchedAt 속성만 포함합니다.
      v2 모델은 여기에 optional locale 속성을 추가합니다.
      locale 추가는 Core Data가 lightweight migration으로 처리할 수 있는 대표적인 변경 예시입니다.
      */
@@ -43,7 +43,7 @@ final class CoreDataMigrationTests: XCTestCase {
 
         private static func makeSearchHistoryEntity(includeLocale: Bool) -> NSEntityDescription {
             let entity = NSEntityDescription()
-            entity.name = "SearchHistory"
+            entity.name = "SearchHistoryRecord"
             entity.managedObjectClassName = NSStringFromClass(NSManagedObject.self)
 
             let keyword = NSAttributeDescription()
@@ -88,7 +88,7 @@ final class CoreDataMigrationTests: XCTestCase {
     /*
      v1 모델로 생성한 SQLite store를 v2 모델과 lightweight migration 정책으로 다시 열 수 있는지 검증합니다.
 
-     먼저 v1 store에 SearchHistory 데이터를 저장한 뒤,
+     먼저 v1 store에 SearchHistoryRecord 데이터를 저장한 뒤,
      같은 store를 optional locale 속성이 추가된 v2 모델로 reopen합니다.
      migration이 성공하면 기존 데이터는 유지되어야 하고,
      새 속성은 nil 상태로 읽을 수 있어야 합니다.
@@ -119,7 +119,7 @@ final class CoreDataMigrationTests: XCTestCase {
 
         _ = try await version1Stack.performWrite { context in
             let entity = NSEntityDescription.insertNewObject(
-                forEntityName: "SearchHistory",
+                forEntityName: "SearchHistoryRecord",
                 into: context
             )
             entity.setValue("swift", forKey: "keyword")
@@ -141,7 +141,7 @@ final class CoreDataMigrationTests: XCTestCase {
         let version2Stack = try await CoreDataStack.make(configuration: version2Configuration)
 
         let fetchedValues = try await version2Stack.performRead { context in
-            let request = NSFetchRequest<NSManagedObject>(entityName: "SearchHistory")
+            let request = NSFetchRequest<NSManagedObject>(entityName: "SearchHistoryRecord")
             request.fetchLimit = 1
 
             guard let object = try context.fetch(request).first else {
@@ -189,7 +189,7 @@ final class CoreDataMigrationTests: XCTestCase {
 
         _ = try await version1Stack.performWrite { context in
             let entity = NSEntityDescription.insertNewObject(
-                forEntityName: "SearchHistory",
+                forEntityName: "SearchHistoryRecord",
                 into: context
             )
             entity.setValue("combine", forKey: "keyword")
