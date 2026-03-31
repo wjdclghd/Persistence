@@ -27,6 +27,11 @@ import CoreData
  - 번들 리소스의 .xcdatamodeld, .momd, .mom 로딩
  - 코드로 생성한 NSManagedObjectModel 직접 주입
 
+ migration 정책 처리 방식
+ - migration option 결정은 PersistenceConfiguration이 담당합니다.
+ - 이 타입은 configuration이 준비한 store description을 container에 주입하고 로드합니다.
+ - 따라서 migration 정책 변경은 stack 내부 분기보다 configuration 값 변경을 통해 수행합니다.
+
  담당하지 않는 역할
  - 엔터티별 조회 조건 구성
  - 도메인 레코드 매핑
@@ -71,7 +76,7 @@ final class CoreDataStack: CoreDataStackProtocol {
      6. viewContext 정책 적용
 
      Parameters:
-     - configuration: 모델 공급 방식, 저장소 종류, merge policy 등을 담은 설정값
+     - configuration: 모델 공급 방식, 저장소 종류, merge policy, migration 정책 등을 담은 설정값
 
      Returns:
      - 초기화가 완료된 CoreDataStack 인스턴스
@@ -97,6 +102,7 @@ final class CoreDataStack: CoreDataStackProtocol {
         /*
          NSPersistentStoreDescription은 store 로딩 전에 설정해야 합니다.
          로딩 이후에 값을 바꿔도 이미 연결된 store에는 반영되지 않습니다.
+         migration option도 동일하게 이 시점에 함께 적용되어야 합니다.
          */
         persistentContainer.persistentStoreDescriptions = [
             configuration.persistentStoreDescription
@@ -131,23 +137,23 @@ final class CoreDataStack: CoreDataStackProtocol {
     /*
      background context에서 읽기 작업을 수행합니다.
 
-      조회 전용 경로이므로 save는 수행하지 않습니다.
-      전달받은 작업 클로저는 background context 전용 큐에서 실행되며,
-      반환값은 그대로 상위 계층에 전달됩니다.
+     조회 전용 경로이므로 save는 수행하지 않습니다.
+     전달받은 작업 클로저는 background context 전용 큐에서 실행되며,
+     반환값은 그대로 상위 계층에 전달됩니다.
 
-      호출 예시
-      - 검색 기록 목록 조회
-      - 특정 캐시 항목 조회
-      - 즐겨찾기 존재 여부 확인
+     호출 예시
+     - 검색 기록 목록 조회
+     - 특정 캐시 항목 조회
+     - 즐겨찾기 존재 여부 확인
 
-      Parameters:
-      - block: background context 전용 큐에서 실행할 조회 작업 클로저
+     Parameters:
+     - block: background context 전용 큐에서 실행할 조회 작업 클로저
 
-      Returns:
-      - block이 생성한 결과 값
+     Returns:
+     - block이 생성한 결과 값
 
-      Throws:
-      - block 실행 실패 시 PersistenceError.readFailed
+     Throws:
+     - block 실행 실패 시 PersistenceError.readFailed
      */
     func performRead<T>(
         _ block: @escaping (NSManagedObjectContext) throws -> T
@@ -162,28 +168,28 @@ final class CoreDataStack: CoreDataStackProtocol {
             throw PersistenceError.readFailed(error.localizedDescription)
         }
     }
-    
+
     /*
      background context에서 쓰기 작업을 수행하고 save까지 처리합니다.
 
-      삽입, 수정, 삭제를 포함하는 작업은 이 경로를 통해 실행합니다.
-      전달받은 작업 클로저는 background context 전용 큐에서 실행되며,
-      호출자는 클로저 안에서 필요한 객체 변경만 수행하고,
-      실제 save 호출은 stack이 공통 규칙에 따라 처리합니다.
+     삽입, 수정, 삭제를 포함하는 작업은 이 경로를 통해 실행합니다.
+     전달받은 작업 클로저는 background context 전용 큐에서 실행되며,
+     호출자는 클로저 안에서 필요한 객체 변경만 수행하고,
+     실제 save 호출은 stack이 공통 규칙에 따라 처리합니다.
 
-      호출 예시
-      - 검색 기록 추가 또는 삭제
-      - 캐시 항목 갱신
-      - 세션 스냅샷 저장
+     호출 예시
+     - 검색 기록 추가 또는 삭제
+     - 캐시 항목 갱신
+     - 세션 스냅샷 저장
 
-      Parameters:
-      - block: background context 전용 큐에서 실행할 쓰기 작업 클로저
+     Parameters:
+     - block: background context 전용 큐에서 실행할 쓰기 작업 클로저
 
-      Returns:
-      - block이 생성한 결과 값
+     Returns:
+     - block이 생성한 결과 값
 
-      Throws:
-      - block 실행 실패 또는 save 실패 시 PersistenceError.writeFailed
+     Throws:
+     - block 실행 실패 또는 save 실패 시 PersistenceError.writeFailed
      */
     func performWrite<T>(
         _ block: @escaping (NSManagedObjectContext) throws -> T
@@ -245,121 +251,91 @@ private extension CoreDataStack {
                             error.localizedDescription
                         )
                     )
-                } else {
-                    continuation.resume(returning: ())
+                    return
                 }
+
+                continuation.resume()
             }
         }
     }
 
     /*
-     설정에 포함된 modelSource에 따라 Core Data 모델을 준비합니다.
+     설정에 포함된 모델 공급 방식에 따라 NSManagedObjectModel을 준비합니다.
 
-     bundle 기반 모델은 번들 리소스에서 로드하고,
-     programmatic 모델은 클로저를 실행해 NSManagedObjectModel을 직접 생성합니다.
+     bundle 모델은 번들 리소스에서 .momd 또는 .mom을 찾아 로드하고,
+     programmatic 모델은 전달받은 빌더 클로저를 실행해 직접 생성합니다.
+     생성된 모델은 최소 유효성 검사를 거친 뒤 반환합니다.
 
      Parameters:
-     - source: Core Data 모델 공급 방식
+     - source: 모델 공급 방식
 
      Returns:
-     - 로딩 또는 생성이 완료된 NSManagedObjectModel
+     - 검증을 통과한 NSManagedObjectModel
 
      Throws:
-     - 번들에서 모델을 찾지 못한 경우 PersistenceError.modelNotFound
-     - 코드 기반 모델이 비어 있거나 잘못 구성된 경우 PersistenceError.invalidConfiguration
+     - PersistenceError.modelNotFound
+     - PersistenceError.invalidConfiguration
+     - programmatic 모델 생성 중 발생한 오류
      */
     static func makeManagedObjectModel(
         from source: PersistenceConfiguration.ManagedObjectModelSource
     ) throws -> NSManagedObjectModel {
+        let managedObjectModel: NSManagedObjectModel
+
         switch source {
         case let .bundle(modelName, bundle):
-            return try makeManagedObjectModel(named: modelName, in: bundle)
+            let bundlePath = bundle.bundlePath
 
-        case let .programmatic(modelName, makeManagedObjectModel):
-            let model = try makeManagedObjectModel()
-            try validateManagedObjectModel(model, expectedModelName: modelName)
-            return model
+            if let modelURL = bundle.url(forResource: modelName, withExtension: "momd") ??
+                bundle.url(forResource: modelName, withExtension: "mom") {
+                guard let bundleModel = NSManagedObjectModel(contentsOf: modelURL) else {
+                    throw PersistenceError.modelNotFound(
+                        modelName: modelName,
+                        bundlePath: bundlePath
+                    )
+                }
+
+                managedObjectModel = bundleModel
+            } else {
+                throw PersistenceError.modelNotFound(
+                    modelName: modelName,
+                    bundlePath: bundlePath
+                )
+            }
+
+        case let .programmatic(_, makeManagedObjectModel):
+            managedObjectModel = try makeManagedObjectModel()
         }
+
+        try validateManagedObjectModel(managedObjectModel)
+        return managedObjectModel
     }
 
     /*
-     지정한 번들에서 Core Data 모델을 로드합니다.
+     생성된 NSManagedObjectModel이 최소한의 유효성을 만족하는지 확인합니다.
 
-     모델 탐색 순서
-     1. .momd 컴파일 모델 디렉터리 확인
-     2. .mom 단일 컴파일 모델 확인
-     3. 번들 내부 병합 모델 확인
-
-     Swift Package 환경에서는 리소스 번들 경로가 앱 타깃과 다를 수 있으므로,
-     모델 이름과 번들을 명시적으로 받아 로딩하는 방식을 사용합니다.
-
-     Parameters:
-     - modelName: 로드할 Core Data 모델 이름
-     - bundle: 모델 리소스가 포함된 번들
-
-     Returns:
-     - 로딩된 NSManagedObjectModel
-
-     Throws:
-     - 번들에서 모델을 찾지 못한 경우 PersistenceError.modelNotFound
-     */
-    static func makeManagedObjectModel(
-        named modelName: String,
-        in bundle: Bundle
-    ) throws -> NSManagedObjectModel {
-        if let momdURL = bundle.url(forResource: modelName, withExtension: "momd"),
-           let model = NSManagedObjectModel(contentsOf: momdURL) {
-            return model
-        }
-
-        if let momURL = bundle.url(forResource: modelName, withExtension: "mom"),
-           let model = NSManagedObjectModel(contentsOf: momURL) {
-            return model
-        }
-
-        if let mergedModel = NSManagedObjectModel.mergedModel(from: [bundle]) {
-            return mergedModel
-        }
-
-        throw PersistenceError.modelNotFound(
-            modelName: modelName,
-            bundlePath: bundle.bundlePath
-        )
-    }
-
-    /*
-     programmatic 모델이 컨테이너에 사용할 수 있는 최소 구성을 갖췄는지 확인합니다.
-
-     최소 검증 항목
-     - 엔티티가 하나 이상 존재해야 합니다.
-     - 모든 엔티티는 비어 있지 않은 이름을 가져야 합니다.
+     빈 엔티티 목록이나 이름이 없는 엔티티는 실제 store 생성과 fetch 단계에서
+     더 모호한 오류를 만들 수 있으므로, stack 초기화 시점에 선제적으로 차단합니다.
 
      Parameters:
      - model: 검증할 NSManagedObjectModel
-     - expectedModelName: 오류 메시지에 포함할 모델 식별 이름
 
      Throws:
-     - 필수 구성이 누락된 경우 PersistenceError.invalidConfiguration
+     - PersistenceError.invalidConfiguration
      */
     static func validateManagedObjectModel(
-        _ model: NSManagedObjectModel,
-        expectedModelName: String
+        _ model: NSManagedObjectModel
     ) throws {
-        if model.entities.isEmpty {
-            throw PersistenceError.invalidConfiguration(
-                "코드 기반 모델 '\(expectedModelName)'에 엔티티가 없습니다."
-            )
+        guard model.entities.isEmpty == false else {
+            throw PersistenceError.invalidConfiguration("Core Data 모델에 엔터티가 하나 이상 필요합니다.")
         }
 
-        let hasUnnamedEntity = model.entities.contains {
-            let name = $0.name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            return name.isEmpty
+        let invalidEntity = model.entities.first {
+            ($0.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
 
-        if hasUnnamedEntity {
-            throw PersistenceError.invalidConfiguration(
-                "코드 기반 모델 '\(expectedModelName)'에 이름이 없는 엔티티가 포함되어 있습니다."
-            )
+        if invalidEntity != nil {
+            throw PersistenceError.invalidConfiguration("엔터티 이름은 비어 있을 수 없습니다.")
         }
     }
 }

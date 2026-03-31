@@ -12,7 +12,7 @@ import CoreData
  Persistence 저장소 구성을 정의하는 설정 타입입니다.
 
  Core Data stack를 생성하려면 모델 공급 방식, 저장소 종류,
- 읽기 전용 여부, context 병합 정책 같은 초기화 정보가 필요합니다.
+ 읽기 전용 여부, context 병합 정책, migration 정책 같은 초기화 정보가 필요합니다.
  이 타입은 그러한 설정을 한 곳에 모아 stack 생성 시점에 전달하기 위한 값 객체입니다.
 
  지원하는 모델 공급 방식
@@ -23,7 +23,7 @@ import CoreData
  - 실제 앱에서 디스크 기반 SQLite 저장소 생성
  - 테스트에서 메모리 기반 저장소 생성
  - 리소스 번들 없이 코드 기반 모델로 동작 확인
- - merge policy나 자동 병합 여부를 환경별로 분리
+ - merge policy나 migration 정책을 환경별로 분리
  */
 public struct PersistenceConfiguration {
     /*
@@ -91,6 +91,17 @@ public struct PersistenceConfiguration {
     public let shouldAddStoreAsynchronously: Bool
 
     /*
+     store 로딩 시 적용할 migration 정책입니다.
+
+     SQLite 저장소를 열 때 현재 모델과 기존 store 메타데이터 사이에 차이가 있으면,
+     이 설정을 기준으로 Core Data가 automatic migration을 시도합니다.
+     in-memory store는 실제 디스크 store 메타데이터를 다루지 않으므로
+     migration option이 실질적으로 필요하지 않지만,
+     환경별 설정 일관성을 위해 같은 값 객체 안에 함께 보관합니다.
+     */
+    public let migrationPlan: PersistenceMigrationPlan
+
+    /*
      viewContext가 background context 저장 결과를 자동 병합할지 여부입니다.
 
      background context에서 저장된 변경 사항을 화면 계층이 자연스럽게 반영하려면
@@ -133,11 +144,25 @@ public struct PersistenceConfiguration {
         }
     }
 
+    /*
+     모든 세부 설정을 직접 지정하는 기본 초기화 메서드입니다.
+
+     Parameters:
+     - modelSource: 사용할 Core Data 모델 공급 방식
+     - storeKind: SQLite 또는 in-memory 저장소 종류
+     - isReadOnly: 저장소를 읽기 전용으로 열지 여부
+     - shouldAddStoreAsynchronously: store 추가를 비동기로 수행할지 여부
+     - migrationPlan: store 로딩 시 적용할 migration 정책
+     - viewContextAutomaticallyMergesChangesFromParent: viewContext 자동 병합 여부
+     - viewContextMergePolicy: viewContext merge policy
+     - backgroundContextMergePolicy: background context merge policy
+     */
     public init(
         modelSource: ManagedObjectModelSource,
         storeKind: StoreKind,
         isReadOnly: Bool = false,
         shouldAddStoreAsynchronously: Bool = false,
+        migrationPlan: PersistenceMigrationPlan = .lightweight,
         viewContextAutomaticallyMergesChangesFromParent: Bool = true,
         viewContextMergePolicy: MergePolicyKind = .objectTrump,
         backgroundContextMergePolicy: MergePolicyKind = .objectTrump
@@ -146,6 +171,7 @@ public struct PersistenceConfiguration {
         self.storeKind = storeKind
         self.isReadOnly = isReadOnly
         self.shouldAddStoreAsynchronously = shouldAddStoreAsynchronously
+        self.migrationPlan = migrationPlan
         self.viewContextAutomaticallyMergesChangesFromParent = viewContextAutomaticallyMergesChangesFromParent
         self.viewContextMergePolicy = viewContextMergePolicy
         self.backgroundContextMergePolicy = backgroundContextMergePolicy
@@ -156,6 +182,17 @@ public struct PersistenceConfiguration {
 
      .xcdatamodeld 기반 구성을 유지하는 호출부가 변경 없이 동작하도록,
      전달받은 모델 이름과 번들을 bundle 기반 modelSource로 감싸서 저장합니다.
+
+     Parameters:
+     - modelName: 번들에서 로드할 모델 이름
+     - modelBundle: 모델 리소스가 들어있는 번들
+     - storeKind: SQLite 또는 in-memory 저장소 종류
+     - isReadOnly: 저장소를 읽기 전용으로 열지 여부
+     - shouldAddStoreAsynchronously: store 추가를 비동기로 수행할지 여부
+     - migrationPlan: store 로딩 시 적용할 migration 정책
+     - viewContextAutomaticallyMergesChangesFromParent: viewContext 자동 병합 여부
+     - viewContextMergePolicy: viewContext merge policy
+     - backgroundContextMergePolicy: background context merge policy
      */
     public init(
         modelName: String,
@@ -163,6 +200,7 @@ public struct PersistenceConfiguration {
         storeKind: StoreKind,
         isReadOnly: Bool = false,
         shouldAddStoreAsynchronously: Bool = false,
+        migrationPlan: PersistenceMigrationPlan = .lightweight,
         viewContextAutomaticallyMergesChangesFromParent: Bool = true,
         viewContextMergePolicy: MergePolicyKind = .objectTrump,
         backgroundContextMergePolicy: MergePolicyKind = .objectTrump
@@ -172,6 +210,7 @@ public struct PersistenceConfiguration {
             storeKind: storeKind,
             isReadOnly: isReadOnly,
             shouldAddStoreAsynchronously: shouldAddStoreAsynchronously,
+            migrationPlan: migrationPlan,
             viewContextAutomaticallyMergesChangesFromParent: viewContextAutomaticallyMergesChangesFromParent,
             viewContextMergePolicy: viewContextMergePolicy,
             backgroundContextMergePolicy: backgroundContextMergePolicy
@@ -196,6 +235,7 @@ public struct PersistenceConfiguration {
      - directoryName: 저장소 파일을 보관할 하위 디렉터리 이름
      - fileName: SQLite 파일 이름
      - baseDirectoryURL: 저장소 디렉터리를 만들 기준 경로
+     - migrationPlan: store 로딩 시 적용할 migration 정책
 
      Returns:
      - 디스크 기반 저장소를 위한 PersistenceConfiguration
@@ -208,11 +248,13 @@ public struct PersistenceConfiguration {
         modelSource: ManagedObjectModelSource,
         directoryName: String = "Persistence",
         fileName: String = "Persistence.sqlite",
-        baseDirectoryURL: URL? = nil
+        baseDirectoryURL: URL? = nil,
+        migrationPlan: PersistenceMigrationPlan = .lightweight
     ) throws -> PersistenceConfiguration {
         try validateNonEmpty(modelSource.modelName, name: "modelName")
         try validateNonEmpty(directoryName, name: "directoryName")
         try validateNonEmpty(fileName, name: "fileName")
+        try migrationPlan.validate()
 
         let fileManager = FileManager.default
 
@@ -241,7 +283,8 @@ public struct PersistenceConfiguration {
 
         return PersistenceConfiguration(
             modelSource: modelSource,
-            storeKind: .sqlite(url: storeURL)
+            storeKind: .sqlite(url: storeURL),
+            migrationPlan: migrationPlan
         )
     }
 
@@ -250,11 +293,18 @@ public struct PersistenceConfiguration {
 
      public default argument에서 Bundle.module을 직접 사용할 수 없으므로,
      기본 모델을 사용하는 경로는 별도 오버로드로 제공합니다.
+
+     Parameters:
+     - directoryName: 저장소 파일을 보관할 하위 디렉터리 이름
+     - fileName: SQLite 파일 이름
+     - baseDirectoryURL: 저장소 디렉터리를 만들 기준 경로
+     - migrationPlan: store 로딩 시 적용할 migration 정책
      */
     public static func live(
         directoryName: String = "Persistence",
         fileName: String = "Persistence.sqlite",
-        baseDirectoryURL: URL? = nil
+        baseDirectoryURL: URL? = nil,
+        migrationPlan: PersistenceMigrationPlan = .lightweight
     ) throws -> PersistenceConfiguration {
         try live(
             modelSource: .bundle(
@@ -263,7 +313,8 @@ public struct PersistenceConfiguration {
             ),
             directoryName: directoryName,
             fileName: fileName,
-            baseDirectoryURL: baseDirectoryURL
+            baseDirectoryURL: baseDirectoryURL,
+            migrationPlan: migrationPlan
         )
     }
 
@@ -271,19 +322,29 @@ public struct PersistenceConfiguration {
      bundle 리소스를 명시적으로 지정해 SQLite 기반 설정을 생성하는 방식입니다.
 
      앱 타깃, 테스트 번들, 별도 리소스 번들처럼 모델 위치를 직접 지정해야 할 때 사용합니다.
+
+     Parameters:
+     - modelName: 번들에서 로드할 모델 이름
+     - modelBundle: 모델 리소스가 들어있는 번들
+     - directoryName: 저장소 파일을 보관할 하위 디렉터리 이름
+     - fileName: SQLite 파일 이름
+     - baseDirectoryURL: 저장소 디렉터리를 만들 기준 경로
+     - migrationPlan: store 로딩 시 적용할 migration 정책
      */
     public static func live(
         modelName: String,
         modelBundle: Bundle,
         directoryName: String = "Persistence",
         fileName: String = "Persistence.sqlite",
-        baseDirectoryURL: URL? = nil
+        baseDirectoryURL: URL? = nil,
+        migrationPlan: PersistenceMigrationPlan = .lightweight
     ) throws -> PersistenceConfiguration {
         try live(
             modelSource: .bundle(modelName: modelName, bundle: modelBundle),
             directoryName: directoryName,
             fileName: fileName,
-            baseDirectoryURL: baseDirectoryURL
+            baseDirectoryURL: baseDirectoryURL,
+            migrationPlan: migrationPlan
         )
     }
 
@@ -295,16 +356,19 @@ public struct PersistenceConfiguration {
 
      Parameters:
      - modelSource: 사용할 Core Data 모델 공급 방식
+     - migrationPlan: 설정 일관성을 위해 함께 보관할 migration 정책
 
      Returns:
      - 메모리 기반 저장소를 위한 PersistenceConfiguration
      */
     public static func inMemory(
-        modelSource: ManagedObjectModelSource
+        modelSource: ManagedObjectModelSource,
+        migrationPlan: PersistenceMigrationPlan = .lightweight
     ) -> PersistenceConfiguration {
         PersistenceConfiguration(
             modelSource: modelSource,
-            storeKind: .inMemory
+            storeKind: .inMemory,
+            migrationPlan: migrationPlan
         )
     }
 
@@ -313,14 +377,20 @@ public struct PersistenceConfiguration {
 
      public default argument에서 Bundle.module을 직접 사용할 수 없으므로,
      기본 모델을 사용하는 경로는 별도 오버로드로 제공합니다.
+
+     Parameters:
+     - migrationPlan: 설정 일관성을 위해 함께 보관할 migration 정책
      */
-    public static func inMemory() -> PersistenceConfiguration {
+    public static func inMemory(
+        migrationPlan: PersistenceMigrationPlan = .lightweight
+    ) -> PersistenceConfiguration {
         PersistenceConfiguration(
             modelSource: .bundle(
                 modelName: "PersistenceModel",
                 bundle: .module
             ),
-            storeKind: .inMemory
+            storeKind: .inMemory,
+            migrationPlan: migrationPlan
         )
     }
 
@@ -328,14 +398,21 @@ public struct PersistenceConfiguration {
      bundle 리소스를 명시적으로 지정해 in-memory 설정을 생성하는 방식입니다.
 
      테스트 번들 또는 별도 리소스 번들에 포함된 모델을 사용해야 할 때 적합합니다.
+
+     Parameters:
+     - modelName: 번들에서 로드할 모델 이름
+     - modelBundle: 모델 리소스가 들어있는 번들
+     - migrationPlan: 설정 일관성을 위해 함께 보관할 migration 정책
      */
     public static func inMemory(
         modelName: String,
-        modelBundle: Bundle
+        modelBundle: Bundle,
+        migrationPlan: PersistenceMigrationPlan = .lightweight
     ) -> PersistenceConfiguration {
         PersistenceConfiguration(
             modelSource: .bundle(modelName: modelName, bundle: modelBundle),
-            storeKind: .inMemory
+            storeKind: .inMemory,
+            migrationPlan: migrationPlan
         )
     }
 }
@@ -361,24 +438,26 @@ extension PersistenceConfiguration {
      PersistenceConfiguration에 포함된 필수 값이 유효한지 확인합니다.
 
      설정 객체는 생성 자체는 자유롭게 할 수 있지만,
-     실제 stack를 구성하는 시점에는 필수 문자열 값이 비어 있지 않아야 합니다.
+     실제 stack를 구성하는 시점에는 필수 문자열 값과 migration 정책이 유효해야 합니다.
      이 검증은 stack 초기화 전에 잘못된 구성을 빠르게 식별하기 위해 사용합니다.
 
      Throws:
-     - 필수 값이 비어 있으면 PersistenceError.invalidConfiguration
+     - PersistenceError.invalidConfiguration: 필수 값이 비어 있거나 정책 조합이 잘못된 경우
      */
     func validate() throws {
         try Self.validateNonEmpty(modelSource.modelName, name: "modelName")
+        try migrationPlan.validate()
     }
 
     /*
      NSPersistentContainer에 주입할 NSPersistentStoreDescription을 생성합니다.
 
-     storeKind에 따라 SQLite 저장소 또는 InMemory 저장소를 구성하며,
+     storeKind에 따라 SQLite 저장소 또는 in-memory 저장소를 구성하며,
      읽기 전용 여부와 비동기 추가 여부를 함께 반영합니다.
+     SQLite store인 경우에는 migration policy도 함께 적용합니다.
 
-     주의할 점
-     - 이 값은 loadPersistentStores 호출 전에 container에 주입해야 합니다.
+     사용 방법
+     - 이 값을 loadPersistentStores 호출 전에 container에 주입합니다.
      - store 로딩 이후에 변경해도 이미 연결된 저장소 동작에는 반영되지 않습니다.
      */
     var persistentStoreDescription: NSPersistentStoreDescription {
@@ -388,6 +467,7 @@ extension PersistenceConfiguration {
         case let .sqlite(url):
             description = NSPersistentStoreDescription(url: url)
             description.type = NSSQLiteStoreType
+            migrationPlan.apply(to: description)
 
         case .inMemory:
             description = NSPersistentStoreDescription()
@@ -439,7 +519,7 @@ private extension PersistenceConfiguration {
      - name: 오류 메시지에 포함할 설정 이름
 
      Throws:
-     - 값이 비어 있거나 공백만 포함된 경우 PersistenceError.invalidConfiguration
+     - PersistenceError.invalidConfiguration: 값이 비어 있거나 공백만 포함된 경우
      */
     static func validateNonEmpty(_ value: String, name: String) throws {
         let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)

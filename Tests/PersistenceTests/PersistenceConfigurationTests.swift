@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CoreData
 import XCTest
 @testable import Persistence
 
@@ -15,7 +16,7 @@ import XCTest
  이 테스트는 환경별 팩토리 메서드가 올바른 store 종류를 선택하는지,
  bundle 기반 모델과 programmatic 모델을 모두 담을 수 있는지,
  SQLite 저장소 URL이 예상한 위치에 생성되는지,
- 필수 문자열 값이 비어 있을 때 명확한 설정 오류가 반환되는지를 검증합니다.
+ migration 정책이 store description에 정확히 반영되는지를 검증합니다.
  */
 final class PersistenceConfigurationTests: XCTestCase {
     /*
@@ -30,6 +31,20 @@ final class PersistenceConfigurationTests: XCTestCase {
         guard case .inMemory = configuration.storeKind else {
             return XCTFail("Expected in-memory store")
         }
+    }
+
+    /*
+     inMemory 설정도 migration 정책 값을 보관하는지 검증합니다.
+
+     in-memory store는 실질적인 migration option 적용 대상은 아니지만,
+     환경별 설정을 동일한 값 객체로 다루기 위해 정책이 함께 저장되어야 합니다.
+     */
+    func test_inMemoryConfiguration_keepsMigrationPlan() {
+        let configuration = PersistenceConfiguration.inMemory(
+            migrationPlan: .disabled
+        )
+
+        XCTAssertEqual(configuration.migrationPlan, .disabled)
     }
 
     /*
@@ -113,6 +128,50 @@ final class PersistenceConfigurationTests: XCTestCase {
     }
 
     /*
+     SQLite store description 생성 시 migration policy가 Core Data 옵션으로 반영되는지 검증합니다.
+
+     store description은 loadPersistentStores 전에 한 번만 준비되므로,
+     migration 설정이 이 단계에서 정확히 포함되는지 확인합니다.
+     */
+    func test_persistentStoreDescription_forSQLite_appliesMigrationPlan() throws {
+        let temporaryDirectoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+
+        defer {
+            try? FileManager.default.removeItem(at: temporaryDirectoryURL)
+        }
+
+        let configuration = try PersistenceConfiguration.live(
+            directoryName: "Persistence",
+            fileName: "Persistence.sqlite",
+            baseDirectoryURL: temporaryDirectoryURL,
+            migrationPlan: .disabled
+        )
+
+        let description = configuration.persistentStoreDescription
+
+        XCTAssertEqual(description.type, NSSQLiteStoreType)
+        XCTAssertFalse(description.shouldMigrateStoreAutomatically)
+        XCTAssertFalse(description.shouldInferMappingModelAutomatically)
+    }
+
+    /*
+     in-memory store description이 올바른 store type으로 생성되는지 검증합니다.
+
+     in-memory store는 디스크 기반 metadata migration 대상이 아니므로,
+     이 테스트에서는 SQLite 전용 option 값 자체보다 store type 구성이 유지되는지에 집중합니다.
+     */
+    func test_persistentStoreDescription_forInMemory_usesInMemoryStoreType() {
+        let configuration = PersistenceConfiguration.inMemory(
+            migrationPlan: .disabled
+        )
+
+        let description = configuration.persistentStoreDescription
+
+        XCTAssertEqual(description.type, NSInMemoryStoreType)
+    }
+
+    /*
      live 설정에서 필수 문자열 값이 비어 있으면 invalidConfiguration이 발생하는지 검증합니다.
 
      저장소 경로를 만들기 전에 잘못된 설정을 차단하면,
@@ -122,6 +181,29 @@ final class PersistenceConfigurationTests: XCTestCase {
         XCTAssertThrowsError(
             try PersistenceConfiguration.live(directoryName: " ")
         ) { error in
+            guard case let PersistenceError.invalidConfiguration(message) = error else {
+                return XCTFail("Expected invalidConfiguration, got \(error)")
+            }
+
+            XCTAssertFalse(message.isEmpty)
+        }
+    }
+
+    /*
+     migration 정책 조합이 잘못된 경우 validate가 invalidConfiguration을 반환하는지 검증합니다.
+
+     설정 객체는 생성될 수 있어도,
+     실제 stack를 만들기 전에 논리적으로 허용되지 않는 정책은 차단되어야 합니다.
+     */
+    func test_validate_withInvalidMigrationPlan_throwsInvalidConfiguration() {
+        let configuration = PersistenceConfiguration.inMemory(
+            migrationPlan: PersistenceMigrationPlan(
+                shouldMigrateStoreAutomatically: false,
+                shouldInferMappingModelAutomatically: true
+            )
+        )
+
+        XCTAssertThrowsError(try configuration.validate()) { error in
             guard case let PersistenceError.invalidConfiguration(message) = error else {
                 return XCTFail("Expected invalidConfiguration, got \(error)")
             }

@@ -16,6 +16,15 @@
 		55E45F692F6EAE59008C880D /* PersistenceCI.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = PersistenceCI.xctestplan; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		558F742E2F7B7A2800209AB6 /* PersistenceTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			name = PersistenceTests;
+			path = ../Tests/PersistenceTests;
+			sourceTree = SOURCE_ROOT;
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
 /* Begin PBXFrameworksBuildPhase section */
 		55A5BB6E2F6E9B1600FF9F54 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
@@ -38,6 +47,7 @@
 		55A5BB682F6E9B1600FF9F54 = {
 			isa = PBXGroup;
 			children = (
+				558F742E2F7B7A2800209AB6 /* PersistenceTests */,
 				55E45F692F6EAE59008C880D /* PersistenceCI.xctestplan */,
 				55A5BB722F6E9B1600FF9F54 /* Products */,
 			);
@@ -85,6 +95,9 @@
 			buildRules = (
 			);
 			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				558F742E2F7B7A2800209AB6 /* PersistenceTests */,
 			);
 			name = PersistenceCITests;
 			packageProductDependencies = (
