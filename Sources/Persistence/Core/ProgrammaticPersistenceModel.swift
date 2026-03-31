@@ -150,10 +150,14 @@ private extension ProgrammaticPersistenceModel {
      SyncStateRecord 엔티티를 생성합니다.
 
      namespace별 동기화 커서와 dirty 상태를 저장하며,
+     SyncStateRecordMO를 represented class로 사용합니다.
      namespace를 uniqueness constraint로 사용합니다.
      */
     static func makeSyncStateRecordEntity() -> NSEntityDescription {
-        let entity = makeEntity(named: "SyncStateRecord")
+        let entity = makeEntity(
+            named: "SyncStateRecord",
+            managedObjectClassName: NSStringFromClass(SyncStateRecordMO.self)
+        )
         entity.properties = [
             makeStringAttribute(named: "cursor", isOptional: true),
             makeBoolAttribute(named: "isDirty", isOptional: false, defaultValue: false),

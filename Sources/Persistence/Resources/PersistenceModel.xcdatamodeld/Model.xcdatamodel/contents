@@ -46,7 +46,7 @@
             </uniquenessConstraint>
         </uniquenessConstraints>
     </entity>
-    <entity name="SyncStateRecord" representedClassName="SyncStateRecord" syncable="YES">
+    <entity name="SyncStateRecord" representedClassName="SyncStateRecordMO" syncable="YES">
         <attribute name="cursor" optional="YES" attributeType="String"/>
         <attribute name="isDirty" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
         <attribute name="lastSyncedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
