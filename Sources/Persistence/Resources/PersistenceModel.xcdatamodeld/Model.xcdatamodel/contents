@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="24512" systemVersion="25D2128" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="YES" userDefinedModelVersionIdentifier="">
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="24512" systemVersion="25E246" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="YES" userDefinedModelVersionIdentifier="">
     <entity name="CacheEntry" representedClassName="CacheEntry" syncable="YES">
         <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="eTag" optional="YES" attributeType="String"/>
@@ -26,7 +26,7 @@
             </uniquenessConstraint>
         </uniquenessConstraints>
     </entity>
-    <entity name="SearchHistory" representedClassName="SearchHistory" syncable="YES">
+    <entity name="SearchHistory" representedClassName="SearchHistoryMO" syncable="YES">
         <attribute name="keyword" attributeType="String"/>
         <attribute name="lastSearchedAt" attributeType="Date" usesScalarValueType="NO"/>
         <uniquenessConstraints>

@@ -62,10 +62,14 @@ private extension ProgrammaticPersistenceModel {
      SearchHistory 엔티티를 생성합니다.
 
      검색 키워드와 마지막 검색 시각을 저장하며,
+     SearchHistoryMO를 represented class로 사용합니다.
      keyword를 uniqueness constraint로 사용합니다.
      */
     static func makeSearchHistoryEntity() -> NSEntityDescription {
-        let entity = makeEntity(named: "SearchHistory")
+        let entity = makeEntity(
+            named: "SearchHistory",
+            managedObjectClassName: NSStringFromClass(SearchHistoryMO.self)
+        )
         entity.properties = [
             makeStringAttribute(named: "keyword", isOptional: false),
             makeDateAttribute(named: "lastSearchedAt", isOptional: false)
@@ -153,13 +157,23 @@ private extension ProgrammaticPersistenceModel {
     /*
      기본 NSManagedObject 엔티티를 생성합니다.
 
-     아직 별도 ManagedObject 서브클래스를 두지 않은 상태에서도
-     raw NSManagedObject 기반 insert/fetch 테스트가 가능하도록 구성합니다.
+     엔티티 이름과 represented class 이름을 함께 지정할 수 있으며,
+     별도 ManagedObject 서브클래스가 없는 엔티티는 기본 NSManagedObject를 사용합니다.
+
+     Parameters:
+     - name: 생성할 엔티티 이름
+     - managedObjectClassName: 엔티티가 사용할 ManagedObject 클래스 이름
+
+     Returns:
+     - 기본 설정이 완료된 NSEntityDescription
      */
-    static func makeEntity(named name: String) -> NSEntityDescription {
+    static func makeEntity(
+        named name: String,
+        managedObjectClassName: String = NSStringFromClass(NSManagedObject.self)
+    ) -> NSEntityDescription {
         let entity = NSEntityDescription()
         entity.name = name
-        entity.managedObjectClassName = NSStringFromClass(NSManagedObject.self)
+        entity.managedObjectClassName = managedObjectClassName
         return entity
     }
 
