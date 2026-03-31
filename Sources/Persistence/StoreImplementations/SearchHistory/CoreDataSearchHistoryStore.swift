@@ -108,12 +108,12 @@ final class CoreDataSearchHistoryStore: SearchHistoryStoreProtocol {
                 keyword: normalizedRecord.keyword,
                 in: context
             ) {
-                SearchHistoryMapper.update(
+                SearchHistoryRecordMapper.update(
                     existingManagedObject,
                     from: normalizedRecord
                 )
             } else {
-                _ = SearchHistoryMapper.insert(
+                _ = SearchHistoryRecordMapper.insert(
                     from: normalizedRecord,
                     into: context
                 )
@@ -160,7 +160,7 @@ final class CoreDataSearchHistoryStore: SearchHistoryStoreProtocol {
      */
     func deleteAll() async throws {
         _ = try await coreDataStack.performWrite { context in
-            let request = SearchHistoryMO.fetchRequest()
+            let request = SearchHistoryRecordMO.fetchRequest()
             let managedObjects = try context.fetch(request)
 
             managedObjects.forEach(context.delete)
@@ -186,14 +186,14 @@ private extension CoreDataSearchHistoryStore {
         predicate: NSPredicate?,
         in context: NSManagedObjectContext
     ) throws -> [SearchHistoryRecord] {
-        let request = SearchHistoryMO.fetchRequest()
+        let request = SearchHistoryRecordMO.fetchRequest()
         request.predicate = predicate
         request.sortDescriptors = [
-            NSSortDescriptor(key: #keyPath(SearchHistoryMO.lastSearchedAt), ascending: false),
-            NSSortDescriptor(key: #keyPath(SearchHistoryMO.keyword), ascending: true)
+            NSSortDescriptor(key: #keyPath(SearchHistoryRecordMO.lastSearchedAt), ascending: false),
+            NSSortDescriptor(key: #keyPath(SearchHistoryRecordMO.keyword), ascending: true)
         ]
 
-        return try context.fetch(request).map(SearchHistoryMapper.toRecord)
+        return try context.fetch(request).map(SearchHistoryRecordMapper.toRecord)
     }
 
     /*
@@ -212,8 +212,8 @@ private extension CoreDataSearchHistoryStore {
     func fetchManagedObject(
         keyword: String,
         in context: NSManagedObjectContext
-    ) throws -> SearchHistoryMO? {
-        let request = SearchHistoryMO.fetchRequest()
+    ) throws -> SearchHistoryRecordMO? {
+        let request = SearchHistoryRecordMO.fetchRequest()
         request.fetchLimit = 1
         request.predicate = NSPredicate(format: "keyword == %@", keyword)
         return try context.fetch(request).first

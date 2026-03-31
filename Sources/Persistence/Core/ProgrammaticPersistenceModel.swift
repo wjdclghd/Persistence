@@ -30,10 +30,10 @@ public enum ProgrammaticPersistenceModel {
     public static func makeDefaultModel() -> NSManagedObjectModel {
         let model = NSManagedObjectModel()
         model.entities = [
-            makeCacheEntryEntity(),
+            makeSearchHistoryRecordEntity(),
             makeFavoriteRecordEntity(),
-            makeSearchHistoryEntity(),
             makeSessionSnapshotEntity(),
+            makeCacheEntryEntity(),
             makeSyncStateRecordEntity()
         ]
         return model
@@ -59,22 +59,43 @@ public enum ProgrammaticPersistenceModel {
 
 private extension ProgrammaticPersistenceModel {
     /*
-     SearchHistory 엔티티를 생성합니다.
+     SearchHistoryRecord 엔티티를 생성합니다.
 
      검색 키워드와 마지막 검색 시각을 저장하며,
-     SearchHistoryMO를 represented class로 사용합니다.
+     SearchHistoryRecordMO를 represented class로 사용합니다.
      keyword를 uniqueness constraint로 사용합니다.
      */
-    static func makeSearchHistoryEntity() -> NSEntityDescription {
+    static func makeSearchHistoryRecordEntity() -> NSEntityDescription {
         let entity = makeEntity(
-            named: "SearchHistory",
-            managedObjectClassName: NSStringFromClass(SearchHistoryMO.self)
+            named: "SearchHistoryRecord",
+            managedObjectClassName: NSStringFromClass(SearchHistoryRecordMO.self)
         )
         entity.properties = [
             makeStringAttribute(named: "keyword", isOptional: false),
             makeDateAttribute(named: "lastSearchedAt", isOptional: false)
         ]
         entity.uniquenessConstraints = [["keyword"]]
+        return entity
+    }
+    
+    /*
+     FavoriteRecord 엔티티를 생성합니다.
+
+     생성 시각과 식별자, 타입을 저장하며,
+     FavoriteRecordMO를 represented class로 사용합니다.
+     id와 type 조합을 uniqueness constraint로 사용합니다.
+     */
+    static func makeFavoriteRecordEntity() -> NSEntityDescription {
+        let entity = makeEntity(
+            named: "FavoriteRecord",
+            managedObjectClassName: NSStringFromClass(FavoriteRecordMO.self)
+        )
+        entity.properties = [
+            makeDateAttribute(named: "createdAt", isOptional: false),
+            makeStringAttribute(named: "id", isOptional: false),
+            makeStringAttribute(named: "type", isOptional: false)
+        ]
+        entity.uniquenessConstraints = [["id", "type"]]
         return entity
     }
 
@@ -96,23 +117,6 @@ private extension ProgrammaticPersistenceModel {
             makeInt64Attribute(named: "version", isOptional: false, defaultValue: 0)
         ]
         entity.uniquenessConstraints = [["namespace", "key"]]
-        return entity
-    }
-
-    /*
-     FavoriteRecord 엔티티를 생성합니다.
-
-     생성 시각과 식별자, 타입을 저장하며,
-     id와 type 조합을 uniqueness constraint로 사용합니다.
-     */
-    static func makeFavoriteRecordEntity() -> NSEntityDescription {
-        let entity = makeEntity(named: "FavoriteRecord")
-        entity.properties = [
-            makeDateAttribute(named: "createdAt", isOptional: false),
-            makeStringAttribute(named: "id", isOptional: false),
-            makeStringAttribute(named: "type", isOptional: false)
-        ]
-        entity.uniquenessConstraints = [["id", "type"]]
         return entity
     }
 

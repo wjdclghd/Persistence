@@ -15,7 +15,7 @@
             </uniquenessConstraint>
         </uniquenessConstraints>
     </entity>
-    <entity name="FavoriteRecord" representedClassName="FavoriteRecord" syncable="YES">
+    <entity name="FavoriteRecord" representedClassName="FavoriteRecordMO" syncable="YES">
         <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="id" attributeType="String"/>
         <attribute name="type" attributeType="String"/>
@@ -26,7 +26,7 @@
             </uniquenessConstraint>
         </uniquenessConstraints>
     </entity>
-    <entity name="SearchHistory" representedClassName="SearchHistoryMO" syncable="YES">
+    <entity name="SearchHistoryRecord" representedClassName="SearchHistoryRecordMO" syncable="YES">
         <attribute name="keyword" attributeType="String"/>
         <attribute name="lastSearchedAt" attributeType="Date" usesScalarValueType="NO"/>
         <uniquenessConstraints>
