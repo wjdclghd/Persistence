@@ -126,9 +126,13 @@ private extension ProgrammaticPersistenceModel {
 
      namespace와 key 조합을 기준으로 캐시 항목을 식별하고,
      payload와 만료 시각 같은 캐시 메타데이터를 함께 저장합니다.
+     CacheEntryMO를 represented class로 사용합니다.
      */
     static func makeCacheEntryEntity() -> NSEntityDescription {
-        let entity = makeEntity(named: "CacheEntry")
+        let entity = makeEntity(
+            named: "CacheEntry",
+            managedObjectClassName: NSStringFromClass(CacheEntryMO.self)
+        )
         entity.properties = [
             makeDateAttribute(named: "createdAt", isOptional: false),
             makeStringAttribute(named: "eTag", isOptional: true),

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="24512" systemVersion="25E246" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="YES" userDefinedModelVersionIdentifier="">
-    <entity name="CacheEntry" representedClassName="CacheEntry" syncable="YES">
+    <entity name="CacheEntry" representedClassName="CacheEntryMO" syncable="YES">
         <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="eTag" optional="YES" attributeType="String"/>
         <attribute name="expiresAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
