@@ -1,7 +1,7 @@
 # Persistence Module
 
 Clean Architecture + MVVM 환경에서 App 타겟이 SPM 모듈로 의존하는 형태를 전제로 만든 Persistence 모듈입니다.
-이 모듈은 **로컬 저장소(Local Persistence)** 역할에 집중하며, Core Data 기반 저장 구조를 외부에 직접 노출하지 않고 **공개 모델 + 저장소 계약 + 내부 구현체**로 역할을 분리합니다.
+이 모듈은 **로컬 저장소(Local Persistence)** 역할에 집중하며, Core Data 기반 저장 구조를 외부에 직접 노출하지 않고 **공개 Record + 저장소 계약 + 내부 구현체**로 역할을 분리합니다.
 
 모듈 내부는 특정 Feature 로직을 직접 가지지 않고,
 상위 계층이 `PersistenceContainer`를 통해 필요한 저장소를 조립해서 사용하도록 설계되어 있습니다.
@@ -11,20 +11,20 @@ Clean Architecture + MVVM 환경에서 App 타겟이 SPM 모듈로 의존하는 
 - 조립 진입점: `PersistenceContainer`
 - migration 정책: `PersistenceMigrationPlan`
 - 모델 공급 방식: bundle model / programmatic model
-- 공개 계약: `API/Models`, `API/Stores`
-- 내부 구현: `ManagedObjects`, `Mappers`, `StoreImplementations`
+- 공개 계약: `Records`, `Stores`
+- 내부 구현: `ManagedObjects`, `Mappers`, `CoreDataStores`
 - 현재 구현 저장소: `SearchHistory`, `Favorite`, `SessionSnapshot`, `Cache`, `SyncState`
 
 ---
 
 **모듈 구조**
-- API
-  - Models
-  - Stores
+- Records
+- Stores
+- Errors
 - Core
 - ManagedObjects
 - Mappers
-- StoreImplementations
+- CoreDataStores
 - Resources
 - Tests
 
@@ -34,20 +34,20 @@ Persistence/
 ├─ Package.swift
 ├─ Sources/
 │  └─ Persistence/
-│     ├─ API/
-│     │  ├─ Models/
-│     │  │  ├─ PersistenceError.swift
-│     │  │  ├─ SearchHistoryRecord.swift
-│     │  │  ├─ FavoriteRecord.swift
-│     │  │  ├─ SessionSnapshot.swift
-│     │  │  ├─ CacheEntry.swift
-│     │  │  └─ SyncStateRecord.swift
-│     │  └─ Stores/
-│     │     ├─ SearchHistoryStoreProtocol.swift
-│     │     ├─ FavoriteStoreProtocol.swift
-│     │     ├─ SessionSnapshotStoreProtocol.swift
-│     │     ├─ CacheStoreProtocol.swift
-│     │     └─ SyncStateStoreProtocol.swift
+│     ├─ Records/
+│     │  ├─ SearchHistoryRecord.swift
+│     │  ├─ FavoriteRecord.swift
+│     │  ├─ SessionSnapshot.swift
+│     │  ├─ CacheEntry.swift
+│     │  └─ SyncStateRecord.swift
+│     ├─ Stores/
+│     │  ├─ SearchHistoryStoreProtocol.swift
+│     │  ├─ FavoriteStoreProtocol.swift
+│     │  ├─ SessionSnapshotStoreProtocol.swift
+│     │  ├─ CacheStoreProtocol.swift
+│     │  └─ SyncStateStoreProtocol.swift
+│     ├─ Errors/
+│     │  └─ PersistenceError.swift
 │     ├─ Core/
 │     │  ├─ CoreDataStack.swift
 │     │  ├─ CoreDataStackProtocol.swift
@@ -57,18 +57,18 @@ Persistence/
 │     │  ├─ PersistenceMigrationPlan.swift
 │     │  └─ ProgrammaticPersistenceModel.swift
 │     ├─ ManagedObjects/
-│     │  ├─ SearchHistoryRecordMO.swift
-│     │  ├─ FavoriteRecordMO.swift
-│     │  ├─ SessionSnapshotMO.swift
-│     │  ├─ CacheEntryMO.swift
-│     │  └─ SyncStateRecordMO.swift
+│     │  ├─ SearchHistoryRecordManagedObject.swift
+│     │  ├─ FavoriteRecordManagedObject.swift
+│     │  ├─ SessionSnapshotManagedObject.swift
+│     │  ├─ CacheEntryManagedObject.swift
+│     │  └─ SyncStateRecordManagedObject.swift
 │     ├─ Mappers/
 │     │  ├─ SearchHistoryRecordMapper.swift
 │     │  ├─ FavoriteRecordMapper.swift
 │     │  ├─ SessionSnapshotMapper.swift
 │     │  ├─ CacheEntryMapper.swift
 │     │  └─ SyncStateRecordMapper.swift
-│     ├─ StoreImplementations/
+│     ├─ CoreDataStores/
 │     │  ├─ SearchHistory/
 │     │  │  └─ CoreDataSearchHistoryStore.swift
 │     │  ├─ Favorite/
@@ -141,7 +141,7 @@ print(favorites)
 Persistence 모듈은 다음 원칙을 기준으로 구성합니다.
 
 - **외부 공개 계약과 내부 구현 분리**
-  - 상위 계층은 `API/Models`, `API/Stores`에만 의존합니다.
+  - 상위 계층은 `Records`, `Stores`에만 의존합니다.
   - `NSManagedObject`, `NSFetchRequest`, `NSPersistentContainer` 같은 Core Data 세부 구현은 내부에 감춥니다.
 
 - **조립 지점 통일**
@@ -288,7 +288,7 @@ let configuration = try PersistenceConfiguration.live(
 
 ---
 
-**공개 모델과 저장소 계약**
+**공개 Record과 저장소 계약**
 Persistence 모듈이 외부에 노출하는 모델은 다음과 같습니다.
 
 - `SearchHistoryRecord`
@@ -444,21 +444,21 @@ let syncState = try await store.fetchRecord(for: "home-feed")
 
 ---
 
-**ManagedObjects / Mapper / StoreImplementations**
+**ManagedObjects / Mapper / CoreDataStores**
 Persistence 내부 구현은 아래 계층으로 나뉩니다.
 
 ### ManagedObjects
 Core Data 전용 `NSManagedObject` 타입입니다.
 
 예:
-- `SearchHistoryRecordMO`
-- `FavoriteRecordMO`
-- `SessionSnapshotMO`
-- `CacheEntryMO`
-- `SyncStateRecordMO`
+- `SearchHistoryRecordManagedObject`
+- `FavoriteRecordManagedObject`
+- `SessionSnapshotManagedObject`
+- `CacheEntryManagedObject`
+- `SyncStateRecordManagedObject`
 
 ### Mappers
-공개 모델과 ManagedObject 사이를 변환합니다.
+공개 Record과 ManagedObject 사이를 변환합니다.
 
 예:
 - `SearchHistoryRecordMapper`
@@ -467,7 +467,7 @@ Core Data 전용 `NSManagedObject` 타입입니다.
 - `CacheEntryMapper`
 - `SyncStateRecordMapper`
 
-### StoreImplementations
+### CoreDataStores
 실제 Core Data 저장/조회 로직을 구현합니다.
 
 예:
@@ -477,7 +477,7 @@ Core Data 전용 `NSManagedObject` 타입입니다.
 - `CoreDataCacheStore`
 - `CoreDataSyncStateStore`
 
-이 구조 덕분에 공개 API와 Core Data 구현 디테일을 분리할 수 있습니다.
+이 구조 덕분에 공개 계약과 Core Data 구현 디테일을 분리할 수 있습니다.
 
 ---
 
@@ -519,7 +519,7 @@ Persistence 모듈은 `PersistenceError`를 통해 저장소 관련 오류를 �
 
 **권장 사용 전략**
 - 상위 계층은 `PersistenceContainer`를 통해 저장소를 조립합니다.
-- 화면/UseCase/Repository는 `API/Stores` 계약에 의존합니다.
+- 화면/UseCase/Repository는 `Stores` 계약에 의존합니다.
 - `ManagedObject`, `Mapper`, `CoreDataStack` 직접 의존은 Persistence 내부에 제한합니다.
 - 운영 환경은 `live`, 테스트와 샘플 실행은 `inMemory`를 우선 사용합니다.
 - migration 정책은 `PersistenceMigrationPlan`으로 환경별 분리 구성을 권장합니다.
@@ -528,11 +528,11 @@ Persistence 모듈은 `PersistenceError`를 통해 저장소 관련 오류를 �
 
 **권장 확장 방식**
 
-1. `API/Models`에 공개 모델 추가
-2. `API/Stores`에 저장소 계약 추가
+1. `Records`에 공개 Record 추가
+2. `Stores`에 저장소 계약 추가
 3. `ManagedObjects`에 Core Data 타입 추가
 4. `Mappers`에 변환기 추가
-5. `StoreImplementations`에 구현체 추가
+5. `CoreDataStores`에 구현체 추가
 6. `PersistenceContainer`에 조립 메서드 추가
 7. `ProgrammaticPersistenceModel`과 `.xcdatamodeld`에 엔티티 반영
 8. 저장소 전용 테스트 추가
