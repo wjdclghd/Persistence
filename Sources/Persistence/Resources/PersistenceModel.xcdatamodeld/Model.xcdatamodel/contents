@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="24512" systemVersion="25E246" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="YES" userDefinedModelVersionIdentifier="">
-    <entity name="CacheEntry" representedClassName="CacheEntryMO" syncable="YES">
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="24512" systemVersion="25E246" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="NO" userDefinedModelVersionIdentifier="">
+    <entity name="CacheEntry" representedClassName="CacheEntryManagedObject" syncable="YES">
         <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="eTag" optional="YES" attributeType="String"/>
         <attribute name="expiresAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
@@ -15,7 +15,7 @@
             </uniquenessConstraint>
         </uniquenessConstraints>
     </entity>
-    <entity name="FavoriteRecord" representedClassName="FavoriteRecordMO" syncable="YES">
+    <entity name="FavoriteRecord" representedClassName="FavoriteRecordManagedObject" syncable="YES">
         <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="id" attributeType="String"/>
         <attribute name="type" attributeType="String"/>
@@ -26,7 +26,7 @@
             </uniquenessConstraint>
         </uniquenessConstraints>
     </entity>
-    <entity name="SearchHistoryRecord" representedClassName="SearchHistoryRecordMO" syncable="YES">
+    <entity name="SearchHistoryRecord" representedClassName="SearchHistoryRecordManagedObject" syncable="YES">
         <attribute name="keyword" attributeType="String"/>
         <attribute name="lastSearchedAt" attributeType="Date" usesScalarValueType="NO"/>
         <uniquenessConstraints>
@@ -35,7 +35,7 @@
             </uniquenessConstraint>
         </uniquenessConstraints>
     </entity>
-    <entity name="SessionSnapshot" representedClassName="SessionSnapshotMO" syncable="YES">
+    <entity name="SessionSnapshot" representedClassName="SessionSnapshotManagedObject" syncable="YES">
         <attribute name="environment" attributeType="String"/>
         <attribute name="isLoggedIn" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
         <attribute name="lastRefreshedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
@@ -46,7 +46,7 @@
             </uniquenessConstraint>
         </uniquenessConstraints>
     </entity>
-    <entity name="SyncStateRecord" representedClassName="SyncStateRecordMO" syncable="YES">
+    <entity name="SyncStateRecord" representedClassName="SyncStateRecordManagedObject" syncable="YES">
         <attribute name="cursor" optional="YES" attributeType="String"/>
         <attribute name="isDirty" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
         <attribute name="lastSyncedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>

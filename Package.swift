@@ -1,4 +1,4 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 6.0
 //
 //  Package.swift
 //  Persistence
@@ -36,9 +36,12 @@ let package = Package(
         .testTarget(
             name: "PersistenceTests",
             dependencies: [
-                
+                "Persistence"
             ],
             path: "Tests/PersistenceTests"
         )
+    ],
+    swiftLanguageModes: [
+        .v6
     ]
 )
