@@ -3,195 +3,223 @@
 Clean Architecture + MVVM 환경에서 App 타겟이 SPM 모듈로 의존하는 형태를 전제로 만든 Persistence 모듈입니다.
 이 모듈은 **로컬 저장소(Local Persistence)** 역할에 집중하며, Core Data 기반 저장 구조를 외부에 직접 노출하지 않고 **공개 Record + 저장소 계약 + 내부 구현체**로 역할을 분리합니다.
 
-모듈 내부는 특정 Feature 로직을 직접 가지지 않고,
-상위 계층이 `PersistenceContainer`를 통해 필요한 저장소를 조립해서 사용하도록 설계되어 있습니다.
+모듈 내부는 검색 기록, 즐겨찾기, 인증 세션, 세션 스냅샷, 캐시, 동기화 상태 6개 저장 도메인을 담당하며,
+상위 계층은 `PersistenceContainer`를 통해 필요한 Store Protocol 구현체를 즉시 사용할 수 있습니다.
 
 **요약**
 - 저장소 초기화: `PersistenceConfiguration` + `CoreDataStack`
 - 조립 진입점: `PersistenceContainer`
+- 공개 Store 계약: `make*Store()` → `*StoreProtocol`
 - migration 정책: `PersistenceMigrationPlan`
 - 모델 공급 방식: bundle model / programmatic model
 - 공개 계약: `Records`, `Stores`
 - 내부 구현: `ManagedObjects`, `Mappers`, `CoreDataStores`
-- 현재 구현 저장소: `SearchHistory`, `Favorite`, `SessionSnapshot`, `Cache`, `SyncState`
+- 구현 도메인: `SearchHistory`, `Favorite`, `AuthSession`, `SessionSnapshot`, `Cache`, `SyncState`
 
 ---
 
 **모듈 구조**
-- Records
-- Stores
-- Errors
-- Core
-- ManagedObjects
-- Mappers
-- CoreDataStores
-- Resources
-- Tests
-
-예시 구조:
 ```text
 Persistence/
 ├─ Package.swift
 ├─ Sources/
 │  └─ Persistence/
-│     ├─ Records/
-│     │  ├─ SearchHistoryRecord.swift
-│     │  ├─ FavoriteRecord.swift
-│     │  ├─ SessionSnapshot.swift
-│     │  ├─ CacheEntry.swift
-│     │  └─ SyncStateRecord.swift
+│     ├─ Core/
+│     │  ├─ PersistenceContainer.swift
+│     │  ├─ PersistenceConfiguration.swift
+│     │  ├─ PersistenceMigrationPlan.swift
+│     │  ├─ ProgrammaticPersistenceModel.swift
+│     │  ├─ CoreDataStack.swift
+│     │  ├─ CoreDataStackProtocol.swift
+│     │  └─ ContextExecutor.swift
 │     ├─ Stores/
 │     │  ├─ SearchHistoryStoreProtocol.swift
 │     │  ├─ FavoriteStoreProtocol.swift
 │     │  ├─ SessionSnapshotStoreProtocol.swift
+│     │  ├─ AuthSessionStoreProtocol.swift
 │     │  ├─ CacheStoreProtocol.swift
 │     │  └─ SyncStateStoreProtocol.swift
-│     ├─ Errors/
-│     │  └─ PersistenceError.swift
-│     ├─ Core/
-│     │  ├─ CoreDataStack.swift
-│     │  ├─ CoreDataStackProtocol.swift
-│     │  ├─ ContextExecutor.swift
-│     │  ├─ PersistenceConfiguration.swift
-│     │  ├─ PersistenceContainer.swift
-│     │  ├─ PersistenceMigrationPlan.swift
-│     │  └─ ProgrammaticPersistenceModel.swift
+│     ├─ CoreDataStores/
+│     │  ├─ CoreDataSearchHistoryStore.swift
+│     │  ├─ CoreDataFavoriteStore.swift
+│     │  ├─ CoreDataSessionSnapshotStore.swift
+│     │  ├─ CoreDataAuthSessionStore.swift
+│     │  ├─ CoreDataCacheStore.swift
+│     │  └─ CoreDataSyncStateStore.swift
+│     ├─ Records/
+│     │  ├─ SearchHistoryRecord.swift
+│     │  ├─ FavoriteRecord.swift
+│     │  ├─ SessionSnapshot.swift
+│     │  ├─ AuthSessionRecord.swift
+│     │  ├─ CacheEntry.swift
+│     │  └─ SyncStateRecord.swift
 │     ├─ ManagedObjects/
 │     │  ├─ SearchHistoryRecordManagedObject.swift
 │     │  ├─ FavoriteRecordManagedObject.swift
 │     │  ├─ SessionSnapshotManagedObject.swift
+│     │  ├─ AuthSessionRecordManagedObject.swift
 │     │  ├─ CacheEntryManagedObject.swift
 │     │  └─ SyncStateRecordManagedObject.swift
 │     ├─ Mappers/
 │     │  ├─ SearchHistoryRecordMapper.swift
 │     │  ├─ FavoriteRecordMapper.swift
 │     │  ├─ SessionSnapshotMapper.swift
+│     │  ├─ AuthSessionRecordMapper.swift
 │     │  ├─ CacheEntryMapper.swift
 │     │  └─ SyncStateRecordMapper.swift
-│     ├─ CoreDataStores/
-│     │  ├─ SearchHistory/
-│     │  │  └─ CoreDataSearchHistoryStore.swift
-│     │  ├─ Favorite/
-│     │  │  └─ CoreDataFavoriteStore.swift
-│     │  ├─ SessionSnapshot/
-│     │  │  └─ CoreDataSessionSnapshotStore.swift
-│     │  ├─ Cache/
-│     │  │  └─ CoreDataCacheStore.swift
-│     │  └─ SyncState/
-│     │     └─ CoreDataSyncStateStore.swift
+│     ├─ Errors/
+│     │  └─ PersistenceError.swift
 │     └─ Resources/
 │        └─ PersistenceModel.xcdatamodeld
 └─ Tests/
    └─ PersistenceTests/
-      ├─ InMemoryCoreDataStack.swift
-      ├─ CoreDataStackTests.swift
-      ├─ PersistenceConfigurationTests.swift
-      ├─ PersistenceMigrationPlanTests.swift
-      ├─ CoreDataMigrationTests.swift
-      ├─ SearchHistoryStoreTests.swift
-      ├─ FavoriteStoreTests.swift
-      ├─ SessionSnapshotStoreTests.swift
-      ├─ CacheStoreTests.swift
-      └─ SyncStateStoreTests.swift
+      ├─ Core/
+      │  ├─ PersistenceContainerTests.swift
+      │  ├─ PersistenceConfigurationTests.swift
+      │  ├─ PersistenceMigrationPlanTests.swift
+      │  ├─ CoreDataStackTests.swift
+      │  └─ CoreDataMigrationTests.swift
+      ├─ Stores/
+      │  ├─ SearchHistoryStoreTests.swift
+      │  ├─ FavoriteStoreTests.swift
+      │  ├─ SessionSnapshotStoreTests.swift
+      │  ├─ AuthSessionStoreTests.swift
+      │  ├─ CacheStoreTests.swift
+      │  └─ SyncStateStoreTests.swift
+      ├─ Mappers/
+      │  ├─ SearchHistoryRecordMapperTests.swift
+      │  ├─ FavoriteRecordMapperTests.swift
+      │  ├─ SessionSnapshotMapperTests.swift
+      │  ├─ AuthSessionRecordMapperTests.swift
+      │  ├─ CacheEntryMapperTests.swift
+      │  └─ SyncStateRecordMapperTests.swift
+      ├─ Records/
+      │  ├─ SearchHistoryRecordTests.swift
+      │  ├─ FavoriteRecordTests.swift
+      │  ├─ SessionSnapshotTests.swift
+      │  ├─ CacheEntryTests.swift
+      │  └─ SyncStateRecordTests.swift
+      └─ TestDoubles/
+         └─ Fakes/
+            ├─ InMemoryCoreDataStack.swift
+            └─ InMemoryManagedObjectContext.swift
 ```
 
 ---
 
 **빠른 시작**
+
+`PersistenceContainer.makeDefault()`로 실 서비스 컨테이너를 초기화한 뒤, 필요한 Store를 즉시 사용할 수 있습니다.
+
 ```swift
 import Persistence
 
 let container = try await PersistenceContainer.makeDefault()
-let searchHistoryStore = container.makeSearchHistoryStore()
+let store = container.makeSearchHistoryStore()
 
-try await searchHistoryStore.save(
-    SearchHistoryRecord(
-        keyword: "swiftui",
-        lastSearchedAt: Date()
-    )
+// 저장
+try await store.save(
+    SearchHistoryRecord(keyword: "swiftui", lastSearchedAt: Date())
 )
 
-let records = try await searchHistoryStore.fetchAll()
-print(records)
+// 전체 조회 (lastSearchedAt 내림차순)
+let records = try await store.fetchAll()
+
+// 키워드 필터 조회 (대소문자 무시, 부분 일치)
+let filtered = try await store.fetchRecords(matching: "swift")
 ```
 
-테스트나 샘플 실행처럼 디스크 저장소가 필요 없는 환경에서는 in-memory 구성이 더 간단합니다.
+테스트나 샘플 실행처럼 디스크 저장소가 필요 없는 환경에서는 in-memory 구성을 사용합니다.
 
 ```swift
 import Persistence
 
 let container = try await PersistenceContainer.makeDefaultProgrammaticInMemory()
-let favoriteStore = container.makeFavoriteStore()
+let store = container.makeFavoriteStore()
 
-try await favoriteStore.save(
-    FavoriteRecord(
-        id: "100",
-        type: "movie",
-        createdAt: Date()
-    )
+try await store.save(
+    FavoriteRecord(id: "100", type: "movie", createdAt: Date())
 )
+```
 
-let favorites = try await favoriteStore.fetchAll()
-print(favorites)
+특정 경로와 모델 공급 방식을 직접 제어하려면 설정 객체를 먼저 생성합니다.
+
+```swift
+import Persistence
+
+let configuration = try PersistenceConfiguration.live(
+    modelSource: ProgrammaticPersistenceModel.defaultSource(),
+    directoryName: "MyApp",
+    fileName: "MyApp.sqlite",
+    migrationPlan: .lightweight
+)
+let container = try await PersistenceContainer.make(configuration: configuration)
 ```
 
 ---
 
 **핵심 설계 방향**
-Persistence 모듈은 다음 원칙을 기준으로 구성합니다.
 
-- **외부 공개 계약과 내부 구현 분리**
-  - 상위 계층은 `Records`, `Stores`에만 의존합니다.
-  - `NSManagedObject`, `NSFetchRequest`, `NSPersistentContainer` 같은 Core Data 세부 구현은 내부에 감춥니다.
+- **외부 공개 계약과 내부 Core Data 구현 분리**
+  상위 계층은 `Records`, `Stores`에만 의존합니다.
+  `NSManagedObject`, `NSFetchRequest`, `NSPersistentContainer`, `ContextExecutor` 같은 Core Data 구현 세부는 내부에 감춥니다.
 
 - **조립 지점 통일**
-  - 앱 또는 상위 모듈은 `PersistenceContainer`를 통해 저장소를 생성합니다.
-  - 구체 구현체를 직접 생성하기보다, 컨테이너 조립을 통해 일관된 초기화 흐름을 유지합니다.
+  앱 또는 상위 모듈은 `PersistenceContainer`를 통해 저장소를 초기화합니다.
+  6개 저장 도메인이 모두 같은 `CoreDataStack` 위에서 동작합니다.
 
-- **저장소별 책임 분리**
-  - SearchHistory, Favorite, SessionSnapshot, Cache, SyncState는 각각 독립된 Store 계약과 구현체를 가집니다.
-  - 저장 정책, 정렬 규칙, 공백 정규화 규칙도 저장소별로 관리합니다.
+- **도메인별 책임 분리**
+  - 검색 기록: `CoreDataSearchHistoryStore`
+  - 즐겨찾기: `CoreDataFavoriteStore`
+  - 인증 세션: `CoreDataAuthSessionStore`
+  - 세션 스냅샷: `CoreDataSessionSnapshotStore`
+  - 캐시: `CoreDataCacheStore`
+  - 동기화 상태: `CoreDataSyncStateStore`
+  - 값 변환: `Mappers`
 
 - **테스트 친화적인 구조**
-  - bundle model뿐 아니라 programmatic model도 지원합니다.
-  - in-memory store를 쉽게 구성할 수 있어 단위 테스트와 샘플 실행에 유리합니다.
+  bundle model과 programmatic model을 모두 지원합니다.
+  in-memory store를 쉽게 구성할 수 있어 단위 테스트와 샘플 실행에 유리합니다.
 
 ---
 
 **PersistenceContainer**
+
 `PersistenceContainer`는 Persistence 모듈의 **조립 진입점(composition entry point)** 입니다.
 
-제공 기능:
-- `make(configuration:)`
-- `makeDefault()`
-- `makeDefaultProgrammaticInMemory()`
-- `makeSearchHistoryStore()`
-- `makeFavoriteStore()`
-- `makeSessionSnapshotStore()`
-- `makeCacheStore()`
-- `makeSyncStateStore()`
+제공 팩토리:
+- `make(configuration:)` — 커스텀 설정 기반 컨테이너
+- `makeDefault()` — bundle 모델 + 디스크 기반 SQLite 컨테이너
+- `makeDefaultProgrammaticInMemory()` — 코드 기반 모델 + in-memory 컨테이너
 
-예시:
+제공 메서드:
+- `makeSearchHistoryStore() -> any SearchHistoryStoreProtocol`
+- `makeFavoriteStore() -> any FavoriteStoreProtocol`
+- `makeSessionSnapshotStore() -> any SessionSnapshotStoreProtocol`
+- `makeAuthSessionStore() -> any AuthSessionStoreProtocol`
+- `makeCacheStore() -> any CacheStoreProtocol`
+- `makeSyncStateStore() -> any SyncStateStoreProtocol`
+
 ```swift
-let configuration = try PersistenceConfiguration.live()
-let container = try await PersistenceContainer.make(configuration: configuration)
+let container = try await PersistenceContainer.makeDefault()
 
+let searchHistoryStore = container.makeSearchHistoryStore()
 let cacheStore = container.makeCacheStore()
-let sessionStore = container.makeSessionSnapshotStore()
-let syncStateStore = container.makeSyncStateStore()
+let authSessionStore = container.makeAuthSessionStore()
 ```
 
-상위 계층은 `CoreDataSearchHistoryStore` 같은 구체 타입보다
-`SearchHistoryStoreProtocol`, `CacheStoreProtocol` 같은 계약을 기준으로 사용하는 것이 권장됩니다.
+컨테이너가 내부적으로 같은 `CoreDataStack`을 재사용하는 구현체를 조립합니다.
+`make*Store()`는 해당 도메인 전용 `CoreData*Store`를 같은 stack 위에 조립해 반환합니다.
 
 ---
 
 **PersistenceConfiguration**
+
 `PersistenceConfiguration`은 저장소 초기화에 필요한 값을 한 곳에 모아 관리하는 설정 객체입니다.
 
 주요 설정 항목:
-- `modelSource`
-- `storeKind`
+- `modelSource` — bundle model 또는 programmatic model
+- `storeKind` — SQLite 또는 in-memory
 - `isReadOnly`
 - `shouldAddStoreAsynchronously`
 - `migrationPlan`
@@ -203,16 +231,21 @@ let syncStateStore = container.makeSyncStateStore()
 - `live(...)`: 디스크 기반 SQLite 저장소
 - `inMemory(...)`: 메모리 기반 저장소
 
-### live 예시
 ```swift
+// 디스크 기반 — bundle 모델 사용
 let configuration = try PersistenceConfiguration.live(
     directoryName: "Persistence",
     fileName: "Persistence.sqlite"
 )
-```
 
-### in-memory 예시
-```swift
+// 디스크 기반 — programmatic 모델 사용
+let configuration = try PersistenceConfiguration.live(
+    modelSource: ProgrammaticPersistenceModel.defaultSource(),
+    directoryName: "Persistence",
+    fileName: "Persistence.sqlite"
+)
+
+// in-memory
 let configuration = PersistenceConfiguration.inMemory(
     modelSource: ProgrammaticPersistenceModel.defaultSource()
 )
@@ -221,323 +254,335 @@ let configuration = PersistenceConfiguration.inMemory(
 ---
 
 **모델 공급 방식**
+
 Persistence는 Core Data 모델을 두 가지 방식으로 준비할 수 있습니다.
 
-### 1. bundle model
+### bundle model
 `.xcdatamodeld`, `.mom`, `.momd` 같은 번들 리소스를 사용하는 방식입니다.
 
 적합한 경우:
 - 실제 앱 운영 환경
-- Xcode 모델 편집기 사용
-- 모델 버전 관리와 migration 관리
+- Xcode 모델 편집기와 버전 관리 기능 사용
+- migration 이력 관리
 
-### 2. programmatic model
+### programmatic model
 코드로 `NSManagedObjectModel`을 직접 생성하는 방식입니다.
+`ProgrammaticPersistenceModel.defaultSource()`가 기본 6개 엔티티 구성을 반환합니다.
 
 적합한 경우:
-- 단위 테스트
+- 단위 테스트 (번들 리소스 의존성 제거)
 - 리소스 번들 없이 빠른 실행 확인
 - 모델 구조를 코드로 직접 제어하고 싶은 경우
+
+**두 모델의 엔티티명, 속성명, 타입, optional 여부, default value, uniqueness constraint는 반드시 동일해야 합니다.**
+
+| 파일 | 경로 |
+|---|---|
+| bundle 모델 | `Sources/Persistence/Resources/PersistenceModel.xcdatamodeld` |
+| programmatic 모델 | `Sources/Persistence/Core/ProgrammaticPersistenceModel.swift` |
 
 ---
 
 **Migration**
-`PersistenceMigrationPlan`은 store 로딩 시 적용할 migration 정책을 정의합니다.
+
+`PersistenceMigrationPlan`은 persistent store를 열 때 적용할 migration 정책을 정의합니다.
+Core Data `NSPersistentStoreDescription`의 두 migration 옵션을 값 객체로 캡슐화합니다.
 
 기본 제공 정책:
-- `PersistenceMigrationPlan.lightweight`
-- `PersistenceMigrationPlan.disabled`
 
-### lightweight migration
-- automatic migration 사용
-- inferred mapping model 사용
-- 속성 추가, optional 변경 등 Core Data가 자동 추론 가능한 변경에 적합
+### lightweight
+- automatic migration 사용 (`shouldMigrateStoreAutomatically = true`)
+- inferred mapping model 사용 (`shouldInferMappingModelAutomatically = true`)
+- 속성 추가, optional 변경처럼 Core Data가 자동 추론 가능한 변경에 적합
+- Persistence 모듈의 기본 migration 정책
 
 ### disabled
-- migration 미수행
+- migration 미수행 (`shouldMigrateStoreAutomatically = false`)
 - 현재 모델과 기존 store가 호환되지 않으면 store 로딩 실패
+- 이미 준비된 스키마를 외부에서 별도로 관리하는 환경에서 사용
 
-예시:
 ```swift
 let configuration = try PersistenceConfiguration.live(
     migrationPlan: .lightweight
 )
 ```
 
-중요한 점:
-- migration 정책을 **결정하는 곳은 `PersistenceConfiguration`** 입니다.
-- `CoreDataStack`은 이미 준비된 store description을 사용해 store를 로드합니다.
-- 즉 migration은 stack 내부 분기보다 **configuration 기반 정책 주입**으로 관리합니다.
+migration 정책을 결정하는 곳은 `PersistenceConfiguration`입니다.
+`CoreDataStack`은 이미 준비된 store description을 기준으로 persistent store를 로드합니다.
 
 ---
 
-**CoreDataStack**
-`CoreDataStack`은 Persistence 모듈의 Core Data 기반 foundation입니다.
+**현재 구현 저장소**
 
-담당 역할:
-- `NSManagedObjectModel` 준비
-- `NSPersistentContainer` 생성
-- persistent store description 주입
-- persistent store 로딩
-- `viewContext` 정책 구성
-- background context 생성
-- 공통 읽기/쓰기 실행 경로 제공
+### 1. SearchHistory
 
-외부에 직접 노출되는 저장소 구현 상세를 최소화하기 위해,
-상위 계층은 `CoreDataStack`을 직접 다루기보다 `PersistenceContainer`와 Store 계약을 사용하는 것이 기본입니다.
-
----
-
-**공개 Record과 저장소 계약**
-Persistence 모듈이 외부에 노출하는 모델은 다음과 같습니다.
-
-- `SearchHistoryRecord`
-- `FavoriteRecord`
-- `SessionSnapshot`
-- `CacheEntry`
-- `SyncStateRecord`
-- `PersistenceError`
-
-저장소 계약은 다음과 같습니다.
-
-- `SearchHistoryStoreProtocol`
-- `FavoriteStoreProtocol`
-- `SessionSnapshotStoreProtocol`
-- `CacheStoreProtocol`
-- `SyncStateStoreProtocol`
-
-이 구조의 목적은 다음과 같습니다.
-- 상위 계층이 Core Data 내부 타입을 몰라도 된다.
-- 로컬 저장소 구현을 바꾸더라도 공개 계약은 안정적으로 유지할 수 있다.
-- 테스트 더블이나 대체 구현체를 만들기 쉽다.
-
----
-
-**현재 제공하는 저장소**
-
-### SearchHistory
 최근 검색 기록을 저장하는 저장소입니다.
 
-특징:
-- `keyword` 기준 upsert
-- 전체 조회 시 `lastSearchedAt desc`
-- 키워드 필터 조회 지원
-- 공백 keyword 저장 차단
-- 개별 삭제 / 전체 삭제 지원
+- `keyword` uniqueness constraint — 같은 keyword 재저장 시 `lastSearchedAt` 갱신
+- keyword 앞뒤 공백 정규화 저장
+- 빈 keyword 저장 차단
+- 전체 조회: `lastSearchedAt` 내림차순, 동일 시각이면 `keyword` 오름차순
+- keyword 필터 조회: 대소문자 무시, 부분 일치 (`CONTAINS[cd]`)
+- 개별 삭제 (`keyword`) / 전체 삭제
 
-예시:
-```swift
-let store = container.makeSearchHistoryStore()
+관련 구현: `CoreDataSearchHistoryStore`, `SearchHistoryRecord`, `SearchHistoryRecordManagedObject`, `SearchHistoryRecordMapper`
 
-try await store.save(
-    SearchHistoryRecord(
-        keyword: "combine",
-        lastSearchedAt: Date()
-    )
-)
+### 2. Favorite
 
-let recentKeywords = try await store.fetchAll()
-```
-
-### Favorite
 즐겨찾기 항목을 저장하는 저장소입니다.
 
-특징:
-- `id + type` 조합 기준 upsert
-- 전체 조회 시 `createdAt desc`
-- 타입별 조회 지원
-- 단건 조회 지원
-- 개별 삭제 / 전체 삭제 지원
+- `id + type` 조합 uniqueness constraint — 동일 조합 재저장 시 `createdAt` 갱신
+- id, type 앞뒤 공백 정규화 저장
+- 빈 id 또는 type 저장 차단
+- 전체 조회: `createdAt` 내림차순, 동일 시각이면 `type` → `id` 오름차순
+- 타입별 조회, 단건 조회 지원
+- 개별 삭제 (`id`, `type`) / 전체 삭제
 
-예시:
-```swift
-let store = container.makeFavoriteStore()
+관련 구현: `CoreDataFavoriteStore`, `FavoriteRecord`, `FavoriteRecordManagedObject`, `FavoriteRecordMapper`
 
-try await store.save(
-    FavoriteRecord(
-        id: "200",
-        type: "movie",
-        createdAt: Date()
-    )
-)
+### 3. AuthSession
 
-let movieFavorites = try await store.fetchRecords(ofType: "movie")
-```
+로그인 성공 후 사용자 기본 정보를 저장하는 저장소입니다.
 
-### SessionSnapshot
-환경별 세션 상태를 저장하는 저장소입니다.
+- `environment` uniqueness constraint — 같은 환경 재저장 시 전체 값 갱신
+- 문자열 값 앞뒤 공백 정규화 저장
+- 필수 값 빈 문자열 저장 차단
+- 전체 조회: `environment` 오름차순
+- 환경별 단건 조회 지원
+- 개별 삭제 (`environment`) / 전체 삭제
 
-특징:
-- `environment` 기준 upsert
-- 공백 `userID`는 `nil`로 정규화
-- 특정 환경의 세션 스냅샷 조회 지원
-- 개별 삭제 / 전체 삭제 지원
+**저장 대상**: `environment`, `userID(Int64)`, `email`, `nickname`, `role`, `status`, `isLoggedIn`, `lastRefreshedAt`
+**저장 금지**: `accessToken`, `refreshToken`, 토큰 만료 시각, 비밀번호
 
-예시:
-```swift
-let store = container.makeSessionSnapshotStore()
+관련 구현: `CoreDataAuthSessionStore`, `AuthSessionRecord`, `AuthSessionRecordManagedObject`, `AuthSessionRecordMapper`
 
-try await store.save(
-    SessionSnapshot(
-        environment: "prod",
-        isLoggedIn: true,
-        lastRefreshedAt: Date(),
-        userID: "user-1"
-    )
-)
+### 4. SessionSnapshot
 
-let prodSession = try await store.fetchSnapshot(for: "prod")
-```
+환경별 간단 세션 스냅샷을 저장하는 저장소입니다.
 
-### Cache
-namespace 기반 캐시 항목을 저장하는 저장소입니다.
+- `environment` uniqueness constraint — 같은 환경 재저장 시 전체 값 갱신
+- `userID` 공백 정규화 — 빈 문자열이면 `nil`로 저장
+- 전체 조회: `environment` 오름차순
+- 환경별 단건 조회 지원
+- 개별 삭제 (`environment`) / 전체 삭제
 
-특징:
-- `namespace + key` 조합 기준 upsert
-- 단건 조회 / namespace별 목록 조회 지원
-- `eTag` 공백은 `nil`로 정규화
-- namespace 단위 삭제 / 전체 삭제 지원
+관련 구현: `CoreDataSessionSnapshotStore`, `SessionSnapshot`, `SessionSnapshotManagedObject`, `SessionSnapshotMapper`
 
-예시:
-```swift
-let store = container.makeCacheStore()
+### 5. Cache
 
-try await store.save(
-    CacheEntry(
-        namespace: "appConfig",
-        key: "home",
-        payload: Data("cached".utf8),
-        eTag: "etag-1",
-        expiresAt: nil,
-        createdAt: Date(),
-        version: 1
-    )
-)
+namespace + key 기반 캐시 항목을 저장하는 저장소입니다.
 
-let entry = try await store.fetchEntry(namespace: "appConfig", key: "home")
-```
+- `namespace + key` 조합 uniqueness constraint — 동일 조합 재저장 시 전체 값 갱신
+- namespace, key, eTag 앞뒤 공백 정규화 — 빈 eTag는 `nil`로 저장
+- 빈 namespace 또는 key 저장 차단
+- 전체 조회: `namespace` → `key` 오름차순
+- namespace별 목록 조회, 단건 조회 지원
+- 개별 삭제, namespace 단위 삭제, 전체 삭제 지원
 
-### SyncState
-동기화 진행 상태를 저장하는 저장소입니다.
+관련 구현: `CoreDataCacheStore`, `CacheEntry`, `CacheEntryManagedObject`, `CacheEntryMapper`
 
-특징:
-- `namespace` 기준 upsert
-- 공백 `cursor`는 `nil`로 정규화
-- 특정 namespace의 동기화 상태 조회 지원
-- 개별 삭제 / 전체 삭제 지원
+### 6. SyncState
 
-예시:
-```swift
-let store = container.makeSyncStateStore()
+namespace별 동기화 상태와 커서를 저장하는 저장소입니다.
 
-try await store.save(
-    SyncStateRecord(
-        namespace: "home-feed",
-        cursor: "cursor-10",
-        isDirty: false,
-        lastSyncedAt: Date()
-    )
-)
+- `namespace` uniqueness constraint — 같은 namespace 재저장 시 전체 값 갱신
+- `cursor` 공백 정규화 — 빈 문자열이면 `nil`로 저장
+- 빈 namespace 저장 차단
+- 전체 조회: `namespace` 오름차순
+- namespace별 단건 조회 지원
+- 개별 삭제 (`namespace`) / 전체 삭제
 
-let syncState = try await store.fetchRecord(for: "home-feed")
-```
+관련 구현: `CoreDataSyncStateStore`, `SyncStateRecord`, `SyncStateRecordManagedObject`, `SyncStateRecordMapper`
 
 ---
 
-**ManagedObjects / Mapper / CoreDataStores**
-Persistence 내부 구현은 아래 계층으로 나뉩니다.
+**공개 모델과 계약**
 
-### ManagedObjects
-Core Data 전용 `NSManagedObject` 타입입니다.
+### Records
 
-예:
+| 타입 | 저장 필드 |
+|---|---|
+| `SearchHistoryRecord` | `keyword`, `lastSearchedAt` |
+| `FavoriteRecord` | `id`, `type`, `createdAt` |
+| `AuthSessionRecord` | `environment`, `userID(Int64)`, `email`, `nickname`, `role`, `status`, `isLoggedIn`, `lastRefreshedAt` |
+| `SessionSnapshot` | `environment`, `isLoggedIn`, `lastRefreshedAt?`, `userID?` |
+| `CacheEntry` | `namespace`, `key`, `payload(Data)`, `eTag?`, `expiresAt?`, `createdAt`, `version` |
+| `SyncStateRecord` | `namespace`, `cursor?`, `isDirty`, `lastSyncedAt?` |
+
+모든 Record는 `Equatable`, `Sendable`을 채택한 `struct`입니다.
+
+### Store Protocols
+
+```swift
+public protocol SearchHistoryStoreProtocol {
+    func fetchAll() async throws -> [SearchHistoryRecord]
+    func fetchRecords(matching keyword: String) async throws -> [SearchHistoryRecord]
+    func save(_ record: SearchHistoryRecord) async throws
+    func delete(keyword: String) async throws
+    func deleteAll() async throws
+}
+
+public protocol FavoriteStoreProtocol {
+    func fetchAll() async throws -> [FavoriteRecord]
+    func fetchRecords(ofType type: String) async throws -> [FavoriteRecord]
+    func fetchRecord(id: String, type: String) async throws -> FavoriteRecord?
+    func save(_ record: FavoriteRecord) async throws
+    func delete(id: String, type: String) async throws
+    func deleteAll() async throws
+}
+
+public protocol AuthSessionStoreProtocol {
+    func fetchAll() async throws -> [AuthSessionRecord]
+    func fetchSession(for environment: String) async throws -> AuthSessionRecord?
+    func save(_ session: AuthSessionRecord) async throws
+    func delete(environment: String) async throws
+    func deleteAll() async throws
+}
+
+public protocol SessionSnapshotStoreProtocol {
+    func fetchAll() async throws -> [SessionSnapshot]
+    func fetchSnapshot(for environment: String) async throws -> SessionSnapshot?
+    func save(_ snapshot: SessionSnapshot) async throws
+    func delete(environment: String) async throws
+    func deleteAll() async throws
+}
+
+public protocol CacheStoreProtocol {
+    func fetchAll() async throws -> [CacheEntry]
+    func fetchEntries(in namespace: String) async throws -> [CacheEntry]
+    func fetchEntry(namespace: String, key: String) async throws -> CacheEntry?
+    func save(_ entry: CacheEntry) async throws
+    func delete(namespace: String, key: String) async throws
+    func deleteEntries(in namespace: String) async throws
+    func deleteAll() async throws
+}
+
+public protocol SyncStateStoreProtocol {
+    func fetchAll() async throws -> [SyncStateRecord]
+    func fetchRecord(for namespace: String) async throws -> SyncStateRecord?
+    func save(_ record: SyncStateRecord) async throws
+    func delete(namespace: String) async throws
+    func deleteAll() async throws
+}
+```
+
+### Errors
+
+`PersistenceError` 주요 케이스:
+- `invalidConfiguration(String)` — 설정값 오류 또는 필수 값 누락
+- `modelNotFound(modelName:bundlePath:)` — 번들에서 Core Data 모델을 찾지 못한 경우
+- `persistentStoreLoadFailed(String)` — persistent store 연결 또는 로딩 실패
+- `readFailed(String)` — background context 읽기 작업 실패
+- `writeFailed(String)` — background context 쓰기 또는 save 실패
+
+상위 계층은 Foundation/Core Data의 원시 에러 타입을 직접 해석하지 않고 `PersistenceError`를 기준으로 실패를 분류합니다.
+
+---
+
+**내부 계층 구성**
+
+### Core
+모듈 기반 인프라를 담당합니다.
+
+- `PersistenceContainer`: 조립 진입점
+- `PersistenceConfiguration`: 설정값 (모델 공급, 저장소 종류, merge policy, migration)
+- `PersistenceMigrationPlan`: migration 정책 값 객체
+- `ProgrammaticPersistenceModel`: 코드 기반 기본 모델 생성
+- `CoreDataStack`: `NSPersistentContainer` 초기화, context 관리
+- `CoreDataStackProtocol`: stack 계약 (테스트 더블 교체 지점)
+- `ContextExecutor`: background context 읽기/쓰기 실행 추상화
+
+### Records
+SQLite row 결과를 내부에서 다루는 `NSManagedObject` 서브클래스입니다.
 - `SearchHistoryRecordManagedObject`
 - `FavoriteRecordManagedObject`
+- `AuthSessionRecordManagedObject`
 - `SessionSnapshotManagedObject`
 - `CacheEntryManagedObject`
 - `SyncStateRecordManagedObject`
 
 ### Mappers
-공개 Record과 ManagedObject 사이를 변환합니다.
-
-예:
+`NSManagedObject`와 공개 Record 사이를 변환합니다.
 - `SearchHistoryRecordMapper`
 - `FavoriteRecordMapper`
+- `AuthSessionRecordMapper`
 - `SessionSnapshotMapper`
 - `CacheEntryMapper`
 - `SyncStateRecordMapper`
 
 ### CoreDataStores
 실제 Core Data 저장/조회 로직을 구현합니다.
-
-예:
 - `CoreDataSearchHistoryStore`
 - `CoreDataFavoriteStore`
+- `CoreDataAuthSessionStore`
 - `CoreDataSessionSnapshotStore`
 - `CoreDataCacheStore`
 - `CoreDataSyncStateStore`
 
-이 구조 덕분에 공개 계약과 Core Data 구현 디테일을 분리할 수 있습니다.
-
 ---
 
-**에러 모델**
-Persistence 모듈은 `PersistenceError`를 통해 저장소 관련 오류를 일관되게 전달합니다.
+**Core Data foundation**
 
-주요 케이스:
-- `invalidConfiguration`
-- `modelNotFound`
-- `persistentStoreLoadFailed`
-- `readFailed`
-- `writeFailed`
+Core 계층은 Core Data 기반 foundation을 담당합니다.
 
-상위 계층은 Foundation 또는 Core Data의 원시 에러를 직접 해석하지 않고,
-`PersistenceError`를 기준으로 실패를 분기하는 것이 좋습니다.
+- `CoreDataStack`: `NSPersistentContainer` 초기화, `viewContext` 설정, background context 생성
+- `ContextExecutor`: `performRead(_:)` / `performWrite(_:)` 통해 background context 실행 경계 관리
+- `ProgrammaticPersistenceModel`: 6개 엔티티 코드 정의
+
+Core Data 엔티티 uniqueness 정책:
+
+| 엔티티 | Uniqueness Constraint |
+|---|---|
+| `SearchHistoryRecord` | `keyword` |
+| `FavoriteRecord` | `["id", "type"]` |
+| `AuthSessionRecord` | `environment` |
+| `SessionSnapshot` | `environment` |
+| `CacheEntry` | `["namespace", "key"]` |
+| `SyncStateRecord` | `namespace` |
+
+모든 저장 작업은 background context에서 수행되며, merge policy 기본값은 `objectTrump`입니다.
 
 ---
 
 **테스트**
+
 모듈은 in-memory Core Data 환경을 활용한 테스트를 포함합니다.
 
 포함된 테스트 범위:
-- `CoreDataStackTests`
-- `PersistenceConfigurationTests`
-- `PersistenceMigrationPlanTests`
-- `CoreDataMigrationTests`
-- `SearchHistoryStoreTests`
-- `FavoriteStoreTests`
-- `SessionSnapshotStoreTests`
-- `CacheStoreTests`
-- `SyncStateStoreTests`
+- Core foundation: `CoreDataStackTests`, `PersistenceConfigurationTests`, `PersistenceMigrationPlanTests`, `PersistenceContainerTests`, `CoreDataMigrationTests`
+- Stores: `SearchHistoryStoreTests`, `FavoriteStoreTests`, `AuthSessionStoreTests`, `SessionSnapshotStoreTests`, `CacheStoreTests`, `SyncStateStoreTests`
+- Mappers: `SearchHistoryRecordMapperTests`, `FavoriteRecordMapperTests`, `AuthSessionRecordMapperTests`, `SessionSnapshotMapperTests`, `CacheEntryMapperTests`, `SyncStateRecordMapperTests`
+- Records: `SearchHistoryRecordTests`, `FavoriteRecordTests`, `CacheEntryTests`, `SyncStateRecordTests`
 
 테스트 전략:
-- 공통 인프라 테스트와 저장소 기능 테스트를 분리합니다.
-- programmatic model 기반 in-memory store를 사용해 빠르고 독립적인 검증을 수행합니다.
-- 저장소별 정렬, upsert, 공백 입력 정규화, 삭제 동작, container 조립 결과를 검증합니다.
+- Store 테스트는 `ProgrammaticPersistenceModel.defaultSource()` 기반 in-memory Core Data를 사용합니다.
+- 각 테스트는 독립된 `PersistenceContainer`를 생성해 상태를 격리합니다.
+- 실제 디스크 I/O, 실제 SQLite 파일은 테스트에서 사용하지 않습니다.
+- Core foundation 테스트와 Store 기능 테스트를 분리합니다.
+- upsert 정책, 공백 정규화, 정렬 규칙, 개별/전체 삭제 동작을 단위 테스트로 고정합니다.
 
 ---
 
 **권장 사용 전략**
-- 상위 계층은 `PersistenceContainer`를 통해 저장소를 조립합니다.
-- 화면/UseCase/Repository는 `Stores` 계약에 의존합니다.
-- `ManagedObject`, `Mapper`, `CoreDataStack` 직접 의존은 Persistence 내부에 제한합니다.
+- 상위 계층은 `PersistenceContainer`와 공개 Store Protocol을 기준으로 의존성을 설계합니다.
+- AppData Repository는 `*StoreProtocol` 계약을 주입받아 로컬 저장소에 접근합니다.
+- `NSManagedObject`, `Mapper`, `CoreDataStack`, `ContextExecutor` 직접 의존은 Persistence 내부에 제한합니다.
 - 운영 환경은 `live`, 테스트와 샘플 실행은 `inMemory`를 우선 사용합니다.
 - migration 정책은 `PersistenceMigrationPlan`으로 환경별 분리 구성을 권장합니다.
 
 ---
 
 **권장 확장 방식**
-
 1. `Records`에 공개 Record 추가
-2. `Stores`에 저장소 계약 추가
-3. `ManagedObjects`에 Core Data 타입 추가
-4. `Mappers`에 변환기 추가
+2. `Stores`에 Store Protocol 추가
+3. `ManagedObjects`에 `NSManagedObject` 서브클래스 추가
+4. `Mappers`에 Mapper 추가
 5. `CoreDataStores`에 구현체 추가
-6. `PersistenceContainer`에 조립 메서드 추가
-7. `ProgrammaticPersistenceModel`과 `.xcdatamodeld`에 엔티티 반영
-8. 저장소 전용 테스트 추가
+6. `PersistenceContainer`에 `make*Store()` 팩토리 메서드 추가
+7. `ProgrammaticPersistenceModel.swift`와 `PersistenceModel.xcdatamodeld`에 엔티티 반영 (두 파일 동시 갱신 필수)
+8. Store 테스트, Mapper 테스트, Record 테스트 추가
 
 ---
 
 Created by: JEONG, Chi-hong
-Initial version: April 2026
+Updated: May 2026

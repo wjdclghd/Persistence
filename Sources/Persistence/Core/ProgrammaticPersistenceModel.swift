@@ -26,6 +26,7 @@ public enum ProgrammaticPersistenceModel {
     public static func makeDefaultModel() -> NSManagedObjectModel {
         let model = NSManagedObjectModel()
         model.entities = [
+            makeAuthSessionRecordEntity(),
             makeSearchHistoryRecordEntity(),
             makeFavoriteRecordEntity(),
             makeSessionSnapshotEntity(),
@@ -51,6 +52,30 @@ public enum ProgrammaticPersistenceModel {
 }
 
 private extension ProgrammaticPersistenceModel {
+    /// AuthSessionRecord 엔티티를 생성합니다.
+    ///
+    /// 환경별 인증 세션과 사용자 기본 정보를 저장하며,
+    /// AuthSessionRecordManagedObject를 represented class로 사용합니다.
+    /// environment를 uniqueness constraint로 사용합니다.
+    static func makeAuthSessionRecordEntity() -> NSEntityDescription {
+        let entity = makeEntity(
+            named: "AuthSessionRecord",
+            managedObjectClassName: NSStringFromClass(AuthSessionRecordManagedObject.self)
+        )
+        entity.properties = [
+            makeStringAttribute(named: "environment", isOptional: false),
+            makeInt64Attribute(named: "userID", isOptional: false, defaultValue: 0),
+            makeStringAttribute(named: "email", isOptional: false),
+            makeStringAttribute(named: "nickname", isOptional: false),
+            makeStringAttribute(named: "role", isOptional: false),
+            makeStringAttribute(named: "status", isOptional: false),
+            makeBoolAttribute(named: "isLoggedIn", isOptional: false, defaultValue: false),
+            makeDateAttribute(named: "lastRefreshedAt", isOptional: false)
+        ]
+        entity.uniquenessConstraints = [["environment"]]
+        return entity
+    }
+
     /// SearchHistoryRecord 엔티티를 생성합니다.
     ///
     /// 검색 키워드와 마지막 검색 시각을 저장하며,
