@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="24512" systemVersion="25E246" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithSwiftData="NO" userDefinedModelVersionIdentifier="">
+    <entity name="AuthSessionRecord" representedClassName="AuthSessionRecordManagedObject" syncable="YES">
+        <attribute name="email" attributeType="String"/>
+        <attribute name="environment" attributeType="String"/>
+        <attribute name="isLoggedIn" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="lastRefreshedAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="nickname" attributeType="String"/>
+        <attribute name="role" attributeType="String"/>
+        <attribute name="status" attributeType="String"/>
+        <attribute name="userID" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="environment"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
+    </entity>
     <entity name="CacheEntry" representedClassName="CacheEntryManagedObject" syncable="YES">
         <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="eTag" optional="YES" attributeType="String"/>

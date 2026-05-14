@@ -107,6 +107,37 @@ final class PersistenceContainerTests: XCTestCase {
         XCTAssertEqual(snapshot?.userID, "user-1")
     }
 
+    func test_makeAuthSessionStore_fromContainer_savesAndFetchesSession() async throws {
+        // given
+        let container = try await makeContainer()
+        let store = container.makeAuthSessionStore()
+
+        // when
+        try await store.save(
+            AuthSessionRecord(
+                environment: "prod",
+                userID: 1,
+                email: "user@example.com",
+                nickname: "사용자",
+                role: "USER",
+                status: "ACTIVE",
+                isLoggedIn: true,
+                lastRefreshedAt: Date(timeIntervalSince1970: 350)
+            )
+        )
+        let session = try await store.fetchSession(for: "prod")
+
+        // then
+        XCTAssertEqual(session?.environment, "prod")
+        XCTAssertEqual(session?.userID, 1)
+        XCTAssertEqual(session?.email, "user@example.com")
+        XCTAssertEqual(session?.nickname, "사용자")
+        XCTAssertEqual(session?.role, "USER")
+        XCTAssertEqual(session?.status, "ACTIVE")
+        XCTAssertEqual(session?.isLoggedIn, true)
+        XCTAssertEqual(session?.lastRefreshedAt, Date(timeIntervalSince1970: 350))
+    }
+
     func test_makeCacheStore_fromContainer_savesAndFetchesEntry() async throws {
         // given
         let container = try await makeContainer()
